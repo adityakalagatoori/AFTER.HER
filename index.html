@@ -5,13 +5,43 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>After Her — A Digital Archive</title>
 <meta name="description" content="After Her is a research-grounded digital archive on sexual violence, aftermath and memory in India — documenting real, legally public cases through courts and journalism, never through invented evidence.">
+<!-- Content-Security-Policy, defense-in-depth. This site has exactly two
+     external resources (the two GSAP scripts below, SRI-pinned) and makes
+     no network calls of any kind after load — no fetch, no analytics, no
+     third-party embeds. That let this be written as a real allowlist
+     rather than a token gesture. frame-ancestors is intentionally absent:
+     it is ignored when delivered via <meta> per spec and would be false
+     confidence here — GitHub Pages serves static files with no way to set
+     response headers, so it cannot be enforced this way at all. A small
+     JS frame-busting fallback below covers that gap instead, with the
+     limitations of that approach noted there. -->
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'self';
+  script-src 'self' https://cdnjs.cloudflare.com;
+  style-src 'self' 'unsafe-inline';
+  img-src 'self';
+  font-src 'self';
+  connect-src 'self';
+  object-src 'none';
+  base-uri 'self';
+  form-action 'none';
+">
 <link rel="stylesheet" href="style.css">
 <!-- GSAP: choreography engine for the hero and case-opening timelines only.
      No Three.js/WebGL — see research/design-system.md for why that was
      evaluated and deferred. Loaded from cdnjs; the site degrades to plain
      CSS states if this fails to load (checked in script.js). -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js" defer></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js" defer></script>
+<!-- Subresource Integrity: hashes computed directly from the exact bytes
+     served at these URLs at the time this was added, not copied from a
+     third-party source. If cdnjs ever serves different content at these
+     paths (compromise, or a silent version change), the hash mismatch
+     makes the browser refuse to run it rather than execute it silently. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"
+        integrity="sha384-g4NTh/Iv5PPU4xPyhEWqPcwtNXOvdaDI8LLnyYfyNZOjKJeYQyjzQ9X5275eBjpt"
+        crossorigin="anonymous" referrerpolicy="no-referrer" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"
+        integrity="sha384-Z3REaz79l2IaAZqJsSABtTbhjgOUYyV3p90XNnAPCSHg3EMTz1fouunq9WZRtj3d"
+        crossorigin="anonymous" referrerpolicy="no-referrer" defer></script>
 </head>
 <body>
 

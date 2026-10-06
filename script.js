@@ -8,6 +8,19 @@
 (() => {
   "use strict";
 
+  /* ---------------- -1. Clickjacking defense (fallback) ----------------
+     GitHub Pages serves static files with no way to set response headers,
+     so X-Frame-Options / CSP frame-ancestors (the real fix) cannot be
+     enforced here at all. This JS fallback is strictly weaker: it only
+     acts after this script has loaded and run, so a malicious page could
+     still render this site inside an iframe and overlay deceptive content
+     for a brief window before the redirect fires, or block it entirely by
+     disabling JavaScript in the frame. It's a real but partial mitigation,
+     not a guarantee — documented here rather than implied otherwise. */
+  if (window.top !== window.self) {
+    window.top.location = window.self.location.href;
+  }
+
   const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const isTouch = window.matchMedia("(pointer: coarse)").matches;
 
@@ -1651,9 +1664,22 @@
       renderFragments();
     }
 
+    // Security: fragment text is user-typed and gets inserted via
+    // innerHTML in several places below. Without escaping, something like
+    // <img src=x onerror=alert(1)> typed into a fragment would execute as
+    // real HTML the moment the card re-renders. This is the one place in
+    // the whole site where arbitrary user text reaches innerHTML, so every
+    // caller must route through this first.
+    function escapeHtml(str) {
+      const div = document.createElement("div");
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
     function excerpt(text) {
       if (!text.trim()) return "Not written yet.";
-      return text.length > 90 ? text.slice(0, 90).trim() + "…" : text;
+      const safe = escapeHtml(text);
+      return safe.length > 90 ? safe.slice(0, 90).trim() + "…" : safe;
     }
 
     function renderFragments() {
@@ -1718,7 +1744,7 @@
       identityFlagsEl.innerHTML = flags.map((flag, i) => `
         <div class="identity-flag">
           <span class="identity-flag-type">${flag.type}</span>
-          <p class="identity-flag-text">"${flag.text}"</p>
+          <p class="identity-flag-text">"${escapeHtml(flag.text)}"</p>
           <div class="identity-flag-actions" data-flag-index="${i}">
             <button type="button" data-decision="keep">Keep</button>
             <button type="button" data-decision="remove">Remove</button>
