@@ -69,6 +69,7 @@
     <li><a href="#system">The System</a></li>
     <li><a href="#data">Data</a></li>
     <li><a href="#about">About</a></li>
+    <li><button class="nav-search-btn" id="storyRoomToggle" type="button">The Story Room</button></li>
     <li><button class="nav-search-btn" id="searchToggle" type="button">Search Archive</button></li>
   </ul>
 </nav>
@@ -405,6 +406,233 @@
     <img id="photoInspectImage" src="" alt="">
     <p class="photo-inspect-caption" id="photoInspectCaption"></p>
   </div>
+</div>
+
+<!-- ============ THE STORY ROOM ============
+     A controlled, self-paced writing space for a story the visitor has
+     never been able to tell publicly — entirely separate from the
+     verified case archive. HONESTY BOUNDARY, stated plainly throughout:
+     this is a static site with no backend. Nothing typed here is ever
+     transmitted anywhere, saved to a server, or persisted after the tab
+     closes. "Offer this to the archive" demonstrates the intended future
+     flow only — it does not submit anything, because there is nothing on
+     the other end to receive it yet. This is said to the visitor directly,
+     not hidden in fine print. -->
+<div class="story-room" id="storyRoom" hidden aria-hidden="true" role="dialog" aria-modal="true" aria-label="The Story Room">
+
+  <div class="story-room-chrome">
+    <span class="story-room-breadcrumb" id="storyBreadcrumb">ARCHIVE / THE STORY ROOM</span>
+    <div class="story-room-chrome-actions">
+      <button class="story-chrome-btn" id="storyPauseBtn" type="button" hidden>Pause</button>
+      <button class="story-chrome-btn" id="storyLeaveBtn" data-cursor="Return" type="button">Leave the Room ✕</button>
+    </div>
+  </div>
+
+  <!-- PANEL: Entry -->
+  <section class="story-panel story-panel-entry" id="panelEntry">
+    <div class="story-panel-inner">
+      <span class="label">The Story Room</span>
+      <h2 class="story-title">You don't have to tell everything.</h2>
+      <ul class="story-reassurance">
+        <li>You don't have to use your real name.</li>
+        <li>You don't have to start at the beginning.</li>
+        <li>You can stop whenever you want.</li>
+      </ul>
+      <div class="story-cta-row">
+        <button class="story-cta-primary" id="storyBeginBtn" type="button">Begin</button>
+        <button class="story-cta-secondary" id="storyLookingBtn" type="button">I'm just looking</button>
+      </div>
+      <p class="story-prototype-note">This is a working prototype with no backend server. Nothing you write here is sent anywhere, saved remotely, or stored after you close this tab — see exactly what that means before you start.</p>
+    </div>
+  </section>
+
+  <!-- PANEL: How do you want to begin? -->
+  <section class="story-panel story-panel-begin" id="panelBegin" hidden>
+    <div class="story-panel-inner">
+      <h2 class="story-title">You can start anywhere.</h2>
+      <div class="story-fragment-options" id="beginOptions">
+        <button class="story-option-paper" data-start="incident" type="button">
+          <strong>What happened</strong><span>Start with the event.</span>
+        </button>
+        <button class="story-option-paper" data-start="after" type="button">
+          <strong>What happened after</strong><span>Start with what came next.</span>
+        </button>
+        <button class="story-option-paper" data-start="misunderstood" type="button">
+          <strong>What nobody understood</strong><span>Start with the part people got wrong.</span>
+        </button>
+        <button class="story-option-paper" data-start="neversaid" type="button">
+          <strong>What I have never said</strong><span>Start with something you've never been able to say.</span>
+        </button>
+        <button class="story-option-paper" data-start="wantknown" type="button">
+          <strong>What I want people to know</strong><span>Start with what you wish others understood.</span>
+        </button>
+        <button class="story-option-paper" id="cantSayBtn" type="button">
+          <strong>I don't know</strong><span>That's okay. Start with a fragment.</span>
+        </button>
+        <button class="story-option-paper" data-start="free" type="button">
+          <strong>Write freely</strong><span>No structure. No prompts.</span>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- PANEL: I don't know how to say it -->
+  <section class="story-panel story-panel-cantsay" id="panelCantSay" hidden>
+    <div class="story-panel-inner">
+      <h2 class="story-title">You don't have to describe the hardest part.</h2>
+      <div class="story-fragment-options">
+        <button class="story-option-paper" data-start="before" type="button"><strong>What happened before</strong></button>
+        <button class="story-option-paper" data-start="afterward" type="button"><strong>What happened after</strong></button>
+        <button class="story-option-paper" data-start="changed" type="button"><strong>What changed</strong></button>
+        <button class="story-option-paper" data-start="reacted" type="button"><strong>How people reacted</strong></button>
+        <button class="story-option-paper" data-start="lost" type="button"><strong>What I lost</strong></button>
+        <button class="story-option-paper" data-start="wished" type="button"><strong>What I wish someone had done</strong></button>
+        <button class="story-option-paper" data-start="nodescribe" type="button"><strong>I don't want to describe it</strong></button>
+      </div>
+      <button class="story-cta-secondary" id="cantSayBackBtn" type="button">← Back</button>
+    </div>
+  </section>
+
+  <!-- PANEL: The Story Desk -->
+  <section class="story-panel story-panel-desk" id="panelDesk" hidden>
+    <div class="story-panel-inner story-panel-inner--wide">
+      <div class="story-desk-header">
+        <h2 class="story-title story-title--small">The Story Desk</h2>
+        <div class="story-desk-actions">
+          <button class="story-chrome-btn" id="identityBtn" type="button">How should your story appear? <span id="identityCurrentLabel">Anonymous</span></button>
+          <button class="story-chrome-btn" id="reviewBtn" type="button">Review before leaving →</button>
+          <!-- Goes directly to the review screen now, not Identity Check — see JS wiring. Identity Check is reachable from inside Review instead. -->
+        </div>
+      </div>
+      <div class="story-fragments" id="storyFragments"></div>
+      <button class="story-add-fragment" id="addFragmentBtn" type="button">+ Add another fragment</button>
+    </div>
+  </section>
+
+  <!-- PANEL: Identity -->
+  <section class="story-panel story-panel-identity" id="panelIdentity" hidden>
+    <div class="story-panel-inner">
+      <h2 class="story-title">How should your story appear?</h2>
+      <p class="story-microcopy">You do not need to identify yourself to tell your story.</p>
+      <div class="story-identity-options" id="identityOptions">
+        <button class="story-option-paper" data-identity="anonymous" type="button"><strong>Anonymous</strong></button>
+        <button class="story-option-paper" data-identity="pseudonym" type="button"><strong>Pseudonym</strong></button>
+        <button class="story-option-paper" data-identity="firstname" type="button"><strong>First name only</strong></button>
+        <button class="story-option-paper" data-identity="myname" type="button"><strong>My name</strong></button>
+        <button class="story-option-paper" data-identity="notsure" type="button"><strong>I'm not sure</strong></button>
+      </div>
+      <button class="story-cta-secondary" id="identityBackBtn" type="button">← Back to the desk</button>
+    </div>
+  </section>
+
+  <!-- PANEL: Identity Check -->
+  <section class="story-panel story-panel-identitycheck" id="panelIdentityCheck" hidden>
+    <div class="story-panel-inner story-panel-inner--wide">
+      <h2 class="story-title">Identity Check</h2>
+      <p class="story-microcopy">Some details can identify a person even when their name is removed. This is a simple, imperfect scan — not a guarantee. It can miss things, and it can flag things that aren't actually identifying. You decide, for each one.</p>
+      <div class="identity-flags" id="identityFlags"></div>
+      <p class="story-microcopy story-microcopy--muted" id="identityCheckEmpty" hidden>Nothing was flagged in this pass. That doesn't mean nothing identifying is there — review your own words when you're ready.</p>
+      <button class="story-cta-secondary" id="identityCheckBackBtn" type="button">← Back to review</button>
+    </div>
+  </section>
+
+  <!-- PANEL: Before This Leaves the Room -->
+  <section class="story-panel story-panel-review" id="panelReview" hidden>
+    <div class="story-panel-inner story-panel-inner--wide">
+      <h2 class="story-title">Before this leaves the room</h2>
+
+      <div class="review-block">
+        <span class="label">Your story</span>
+        <div id="reviewFragments"></div>
+      </div>
+      <div class="review-block">
+        <span class="label">Your identity</span>
+        <p id="reviewIdentity"></p>
+      </div>
+      <div class="review-block">
+        <span class="label">Identity check</span>
+        <p class="story-microcopy" style="margin-bottom: var(--space-1);">Some details can identify a person even when their name is removed. You can run a quick, imperfect scan of your own words before deciding what happens next — entirely optional.</p>
+        <button class="story-cta-secondary" id="reviewIdentityCheckBtn" type="button">Check for identifying details →</button>
+      </div>
+
+      <h3 class="story-title story-title--small">What do you want to happen next?</h3>
+      <div class="story-destinations">
+        <button class="story-option-paper" id="destKeepBtn" type="button">
+          <strong>Keep private</strong><span>Nothing is shared publicly.</span>
+        </button>
+        <button class="story-option-paper" id="destSaveBtn" type="button">
+          <strong>Save a copy</strong><span>Download this story as a text file for yourself.</span>
+        </button>
+        <button class="story-option-paper" id="destOfferBtn" type="button">
+          <strong>Offer this story to the archive</strong><span>See what this would involve — nothing is sent in this prototype.</span>
+        </button>
+        <button class="story-option-paper" id="destUnsureBtn" type="button">
+          <strong>I'm not sure</strong><span>Leave the story unfinished.</span>
+        </button>
+      </div>
+      <button class="story-cta-secondary" id="reviewBackBtn" type="button">← Back to the desk</button>
+    </div>
+  </section>
+
+  <!-- PANEL: Offer explanation (honesty boundary, shown before any "send") -->
+  <section class="story-panel story-panel-offer" id="panelOffer" hidden>
+    <div class="story-panel-inner">
+      <span class="label">Archive Review</span>
+      <h2 class="story-title">This is how it would work.</h2>
+      <p class="story-microcopy">Stories offered to After Her would require a separate human review process before anything is ever published — identity handling, consent, and moderation would need to be built and verified before this step could be real. <strong>This prototype has no server.</strong> Nothing you've written will be transmitted, stored, or reviewed by anyone. This screen exists to show the intended flow honestly, not to collect your story.</p>
+      <button class="story-cta-primary" id="offerUnderstoodBtn" type="button">I understand</button>
+    </div>
+  </section>
+
+  <!-- PANEL: Exit -->
+  <section class="story-panel story-panel-exit" id="panelExit" hidden>
+    <div class="story-panel-inner">
+      <h2 class="story-title story-title--final">Unfinished is allowed.</h2>
+      <p class="story-exit-copy">
+        Some stories don't arrive in order.<br>
+        Some don't have endings.<br>
+        Some things are easier to leave unsaid.<br>
+        You decide what happens next.
+      </p>
+      <p class="story-exit-final">Some stories enter the archive.<br>Some remain with the person who lived them.<br>Both are valid.</p>
+      <div class="story-cta-row">
+        <button class="story-cta-primary" id="returnToArchiveBtn" type="button">Return to Archive</button>
+        <button class="story-cta-secondary" id="exitBackToDeskBtn" type="button">← Change my mind, go back</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pause overlay -->
+  <div class="story-pause-overlay" id="storyPauseOverlay" hidden>
+    <p>Take a moment.</p>
+    <div class="story-cta-row">
+      <button class="story-cta-primary" id="pauseContinueBtn" type="button">Continue</button>
+      <button class="story-cta-secondary" id="pauseLeaveBtn" type="button">Leave the room</button>
+    </div>
+  </div>
+
+  <!-- Fragment editor (shared, opens for any fragment) -->
+  <div class="fragment-editor" id="fragmentEditor" hidden>
+    <div class="fragment-editor-inner">
+      <span class="label" id="fragmentEditorLabel">Fragment 01</span>
+      <p class="story-microcopy" id="fragmentPrompt"></p>
+      <textarea id="fragmentTextarea" class="fragment-textarea" placeholder="Write as little or as much as you want."></textarea>
+      <div class="fragment-privacy-row">
+        <span class="label">This fragment is:</span>
+        <div class="fragment-privacy-options">
+          <button class="privacy-pill" data-privacy="private" type="button">Private</button>
+          <button class="privacy-pill" data-privacy="share" type="button">Ready to share</button>
+          <button class="privacy-pill" data-privacy="unsure" type="button">Not sure</button>
+        </div>
+      </div>
+      <p class="story-microcopy story-microcopy--muted">You can leave this unfinished. You can come back and change it. You don't need to explain why.</p>
+      <div class="story-cta-row">
+        <button class="story-cta-primary" id="fragmentDoneBtn" type="button">Done for now</button>
+        <button class="story-cta-secondary" id="fragmentDeleteBtn" type="button">Delete this fragment</button>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <!-- ============ COMMAND PALETTE ============

@@ -63,6 +63,15 @@
   --z-chrome-nav: 100;
   --z-chrome-progress: 150;
   --z-chrome-skip: 200;
+  --z-story-room: 600;
+
+  /* ---- Story Room "warm sanctuary" layer — psychological color state,
+     not a new identity. Only two genuinely new values (both barely-there
+     warm shifts off --bg); everything else reuses existing archive tokens
+     (--paper-context, --state-active, --ink-faded, --ivory) exactly as the
+     brief required ("no new dominant hue"). ---- */
+  --sanctuary-bg: #0D0B09;
+  --sanctuary-glow: rgba(201, 169, 74, 0.07);
 
   --font-display: Georgia, "Times New Roman", serif;
   --font-ui: Inter, Arial, Helvetica, sans-serif;
@@ -907,13 +916,16 @@ button:focus-visible,
 }
 
 /* ---------- Modal ---------- */
+/* `display` scoped to :not([hidden]): not currently a visible bug here
+   (opacity/visibility already do the real hiding, hidden is just a later
+   cleanup step), but fixed for consistency — see .boot-sequence above for
+   where this exact pattern was an actual bug. */
 .modal-overlay {
   position: fixed;
   inset: 0;
   background: rgba(8, 8, 8, 0.86);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
-  display: flex;
   align-items: center;
   justify-content: center;
   padding: var(--space-3);
@@ -921,6 +933,9 @@ button:focus-visible,
   opacity: 0;
   visibility: hidden;
   transition: opacity 0.3s var(--ease), visibility 0.3s var(--ease);
+}
+.modal-overlay:not([hidden]) {
+  display: flex;
 }
 
 .modal-overlay.is-open {
@@ -1013,17 +1028,25 @@ button:focus-visible,
    ========================================================================== */
 
 /* ---------- Boot sequence ---------- */
+/* Serious pre-existing bug fixed here: under prefers-reduced-motion, script.js
+   hides this element by setting `hidden = true` directly (skipping the
+   .is-hidden opacity transition entirely, since there's nothing to
+   transition for a reduced-motion user). An unconditional `display: flex`
+   permanently defeats that — any reduced-motion visitor would see this
+   black full-screen gate forever, blocking the entire site. */
 .boot-sequence {
   position: fixed;
   inset: 0;
   background: var(--bg);
   z-index: var(--z-system-gate);
-  display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: var(--space-3);
   transition: opacity 0.6s var(--ease), visibility 0.6s var(--ease);
+}
+.boot-sequence:not([hidden]) {
+  display: flex;
 }
 
 .boot-sequence.is-hidden {
@@ -2765,6 +2788,471 @@ body::before {
 .trail-clear:hover, .trail-clear:focus-visible {
   color: var(--text);
   border-color: var(--border-hover);
+}
+
+/* ==========================================================================
+   THE STORY ROOM
+   A self-paced writing space, visually and emotionally distinct from the
+   investigation archive (warmer, quieter) but built entirely from the
+   existing design system — no new dominant hue, no wellness-app palette.
+   ========================================================================== */
+
+/* Same [hidden]-vs-author-display issue as .fragment-editor/.story-pause-
+   overlay below: an unconditional `display` here would permanently defeat
+   JS toggling `storyRoom.hidden`, since author CSS always overrides the
+   browser's built-in [hidden]{display:none} regardless of specificity.
+   This was the actual root cause of "Leave the Room" (and everything else
+   using .hidden in this feature) appearing to do nothing. */
+.story-room {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-story-room);
+  background: var(--sanctuary-bg);
+  overflow-y: auto;
+  flex-direction: column;
+}
+.story-room:not([hidden]) {
+  display: flex;
+}
+
+.story-room-chrome {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-3);
+  background: rgba(13, 11, 9, 0.9);
+  backdrop-filter: blur(6px);
+  border-bottom: 1px solid var(--border-subtle);
+  z-index: 2;
+}
+.story-room-breadcrumb {
+  font-size: 0.65rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--state-active);
+}
+.story-room-chrome-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+.story-chrome-btn {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+  padding: 8px 14px;
+  min-height: 44px;
+  transition: color 0.3s var(--ease), border-color 0.3s var(--ease);
+}
+.story-chrome-btn:hover, .story-chrome-btn:focus-visible {
+  color: var(--text);
+  border-color: var(--border-hover);
+}
+.story-chrome-btn span {
+  color: var(--state-active);
+  margin-left: 6px;
+}
+
+/* Fourth instance of the same [hidden]-vs-author-display bug fixed above:
+   without :not([hidden]) here, every panel (Entry, Begin, Desk, Review,
+   Exit...) would render simultaneously, stacked in the flex column,
+   instead of one at a time as showPanel() in script.js intends. */
+.story-panel {
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4) var(--space-3);
+  animation: story-panel-settle 0.5s var(--ease);
+}
+.story-panel:not([hidden]) {
+  display: flex;
+}
+@keyframes story-panel-settle {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .story-panel { animation: none; }
+}
+
+.story-panel-inner {
+  width: 100%;
+  max-width: 560px;
+  text-align: center;
+}
+.story-panel-inner--wide {
+  max-width: 900px;
+  text-align: left;
+}
+
+.story-title {
+  font-family: var(--font-display);
+  font-size: clamp(1.6rem, 4vw, 2.4rem);
+  color: var(--ink-primary);
+  line-height: 1.3;
+  margin: var(--space-2) 0 var(--space-3);
+}
+.story-title--small { font-size: 1.4rem; margin-top: 0; }
+.story-title--final { font-size: clamp(1.4rem, 3vw, 2rem); }
+
+.story-reassurance {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  color: var(--text-secondary);
+  font-size: 1rem;
+  margin-bottom: var(--space-4);
+}
+
+.story-cta-row {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: var(--space-3);
+}
+.story-cta-primary {
+  background: var(--sanctuary-glow);
+  border: 1px solid var(--state-active);
+  color: var(--ink-primary);
+  padding: var(--space-2) var(--space-4);
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  min-height: 44px;
+  transition: background 0.3s var(--ease);
+}
+.story-cta-primary:hover, .story-cta-primary:focus-visible {
+  background: rgba(201, 169, 74, 0.15);
+}
+.story-cta-secondary {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  padding: var(--space-2) var(--space-3);
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  min-height: 44px;
+  transition: color 0.3s var(--ease), border-color 0.3s var(--ease);
+}
+.story-cta-secondary:hover, .story-cta-secondary:focus-visible {
+  color: var(--text);
+  border-color: var(--border-hover);
+}
+
+.story-prototype-note {
+  font-size: 0.78rem;
+  color: var(--ink-faded);
+  line-height: 1.7;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: var(--space-2);
+  max-width: 440px;
+  margin: 0 auto;
+}
+
+.story-microcopy {
+  color: var(--text-secondary);
+  font-size: 0.92rem;
+  line-height: 1.7;
+  margin-bottom: var(--space-3);
+}
+.story-microcopy--muted {
+  color: var(--ink-faded);
+  font-size: 0.8rem;
+  font-style: italic;
+}
+
+/* Paper-fragment option buttons — reuses the Context Sheet material */
+.story-fragment-options, .story-identity-options, .story-destinations {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+.story-option-paper {
+  background: var(--paper-context);
+  border: 1px solid var(--border-subtle);
+  box-shadow: 0 6px 16px var(--shadow-ambient);
+  padding: var(--space-3);
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: transform 0.3s var(--ease), border-color 0.3s var(--ease), box-shadow 0.3s var(--ease);
+}
+.story-option-paper:hover, .story-option-paper:focus-visible {
+  transform: translateY(-3px);
+  border-color: var(--border-hover);
+  box-shadow: 0 10px 22px var(--shadow-ambient);
+}
+.story-option-paper strong {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  color: var(--ink-primary);
+  font-weight: 400;
+}
+.story-option-paper span {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+.story-option-paper.is-selected {
+  border-color: var(--state-active);
+  box-shadow: 0 0 0 1px var(--state-active);
+}
+
+/* The Story Desk */
+.story-desk-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+.story-desk-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.story-fragments {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+.story-fragment-card {
+  background: var(--paper-context);
+  border: 1px solid var(--border-subtle);
+  box-shadow: 0 6px 14px var(--shadow-ambient);
+  padding: var(--space-2);
+  cursor: pointer;
+  transition: transform 0.3s var(--ease), box-shadow 0.3s var(--ease);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 120px;
+}
+.story-fragment-card:hover, .story-fragment-card:focus-visible {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 20px var(--shadow-ambient);
+}
+.story-fragment-card-label {
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-faded);
+}
+.story-fragment-card-excerpt {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  flex: 1;
+  overflow: hidden;
+}
+.story-fragment-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+.fragment-privacy-badge {
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border: 1px solid var(--border-subtle);
+  color: var(--ink-faded);
+}
+.fragment-privacy-badge[data-state="share"] { color: var(--state-active); border-color: var(--state-active); }
+.fragment-privacy-badge[data-state="unsure"] { color: var(--text-muted); }
+.fragment-reorder-btns {
+  display: flex;
+  gap: 4px;
+}
+.fragment-reorder-btns button {
+  width: 28px;
+  height: 28px;
+  color: var(--ink-faded);
+  border: 1px solid var(--border-subtle);
+}
+.fragment-reorder-btns button:hover, .fragment-reorder-btns button:focus-visible {
+  color: var(--text);
+}
+.story-add-fragment {
+  border: 1px dashed var(--border-hover);
+  color: var(--text-secondary);
+  padding: var(--space-2) var(--space-3);
+  font-size: 0.85rem;
+  width: 100%;
+  transition: color 0.3s var(--ease), border-color 0.3s var(--ease);
+}
+.story-add-fragment:hover, .story-add-fragment:focus-visible {
+  color: var(--text);
+  border-color: var(--state-active);
+}
+
+/* Fragment editor */
+.fragment-editor {
+  position: fixed;
+  inset: 0;
+  z-index: 3;
+  background: rgba(13, 11, 9, 0.96);
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-3);
+}
+/* The `hidden` attribute is toggled from JS; an unconditional `display`
+   here would always beat the browser's built-in [hidden]{display:none}
+   rule (author styles always win over user-agent styles regardless of
+   specificity), leaving the overlay stuck visible no matter what JS sets
+   `hidden` to. Scoping `display` to :not([hidden]) fixes that. */
+.fragment-editor:not([hidden]) {
+  display: flex;
+}
+.fragment-editor-inner {
+  width: min(560px, 100%);
+  background: var(--paper-context);
+  border: 1px solid var(--border-hover);
+  padding: var(--space-4) var(--space-3);
+  box-shadow: 0 24px 48px var(--shadow-ambient);
+}
+.fragment-textarea {
+  width: 100%;
+  min-height: 220px;
+  background: var(--sanctuary-bg);
+  border: 1px solid var(--border-subtle);
+  color: var(--ink-primary);
+  font-family: var(--font-ui);
+  font-size: 1rem;
+  line-height: 1.7;
+  padding: var(--space-2);
+  margin: var(--space-2) 0 var(--space-3);
+  resize: vertical;
+}
+.fragment-textarea:focus { outline: 2px solid var(--state-active); outline-offset: 2px; }
+.fragment-privacy-row {
+  margin-bottom: var(--space-3);
+}
+.fragment-privacy-options {
+  display: flex;
+  gap: var(--space-1);
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+.privacy-pill {
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 8px 14px;
+  min-height: 40px;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  transition: color 0.3s var(--ease), border-color 0.3s var(--ease);
+}
+.privacy-pill:hover, .privacy-pill:focus-visible { color: var(--text); }
+.privacy-pill.is-active[data-privacy="private"] { color: var(--ink-primary); border-color: var(--ivory); }
+.privacy-pill.is-active[data-privacy="share"] { color: var(--state-active); border-color: var(--state-active); }
+.privacy-pill.is-active[data-privacy="unsure"] { color: var(--text-muted); border-color: var(--text-muted); }
+
+/* Identity Check flags */
+.identity-flags {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+.identity-flag {
+  background: var(--paper-evidence);
+  border: 1px solid var(--border-subtle);
+  padding: var(--space-2);
+}
+.identity-flag-text {
+  font-family: var(--font-display);
+  color: var(--ink-primary);
+  font-size: 0.95rem;
+  margin-bottom: 6px;
+}
+.identity-flag-type {
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-faded);
+  display: block;
+  margin-bottom: 8px;
+}
+.identity-flag-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.identity-flag-actions button {
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 6px 12px;
+  min-height: 36px;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+}
+.identity-flag-actions button.is-chosen { color: var(--state-active); border-color: var(--state-active); }
+
+/* Review */
+.review-block {
+  margin-bottom: var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.review-fragment {
+  background: var(--paper-context);
+  border-left: 2px solid var(--border-subtle);
+  padding: var(--space-2);
+  margin-bottom: var(--space-1);
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+}
+
+/* Pause overlay. Same [hidden]-vs-author-display fix as .fragment-editor
+   above — see that comment for why `display` is scoped to :not([hidden]). */
+.story-pause-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 4;
+  background: rgba(8, 8, 8, 0.95);
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  color: var(--ink-primary);
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+}
+.story-pause-overlay:not([hidden]) {
+  display: flex;
+}
+
+.story-exit-copy, .story-exit-final {
+  color: var(--text-secondary);
+  line-height: 2;
+  margin-bottom: var(--space-3);
+}
+.story-exit-final { color: var(--ink-primary); font-style: italic; }
+
+@media (max-width: 720px) {
+  .story-fragment-options, .story-identity-options, .story-destinations,
+  .story-fragments {
+    grid-template-columns: 1fr;
+  }
+  .story-desk-header { flex-direction: column; align-items: stretch; }
+  .fragment-editor-inner { max-height: 90vh; overflow-y: auto; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .story-option-paper:hover, .story-fragment-card:hover { transform: none; }
 }
 
 /* ---------- Responsive ---------- */

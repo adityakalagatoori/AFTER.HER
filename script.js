@@ -1456,4 +1456,431 @@
       openOverlay(infoModal);
     });
   });
+
+  /* ==========================================================================
+     THE STORY ROOM
+     HONESTY BOUNDARY (do not weaken this): this is a static site with no
+     backend. storyRoomState lives only in this JS variable — never written
+     to localStorage/sessionStorage/cookies, never sent over the network,
+     never logged to console, never placed in a URL. It is gone the moment
+     the tab closes or this function's closure is torn down. Every place
+     that tells the user something is or isn't saved must stay literally
+     true to that.
+     ========================================================================== */
+  (function initStoryRoom() {
+    const storyRoom = document.getElementById("storyRoom");
+    if (!storyRoom) return;
+
+    const storyRoomToggle = document.getElementById("storyRoomToggle");
+    const storyLeaveBtn = document.getElementById("storyLeaveBtn");
+    const storyPauseBtn = document.getElementById("storyPauseBtn");
+    const storyBreadcrumb = document.getElementById("storyBreadcrumb");
+
+    const panels = {
+      entry: document.getElementById("panelEntry"),
+      begin: document.getElementById("panelBegin"),
+      cantsay: document.getElementById("panelCantSay"),
+      desk: document.getElementById("panelDesk"),
+      identity: document.getElementById("panelIdentity"),
+      identitycheck: document.getElementById("panelIdentityCheck"),
+      review: document.getElementById("panelReview"),
+      offer: document.getElementById("panelOffer"),
+      exit: document.getElementById("panelExit")
+    };
+
+    const storyFragmentsEl = document.getElementById("storyFragments");
+    const addFragmentBtn = document.getElementById("addFragmentBtn");
+    const fragmentEditor = document.getElementById("fragmentEditor");
+    const fragmentEditorLabel = document.getElementById("fragmentEditorLabel");
+    const fragmentPrompt = document.getElementById("fragmentPrompt");
+    const fragmentTextarea = document.getElementById("fragmentTextarea");
+    const fragmentDoneBtn = document.getElementById("fragmentDoneBtn");
+    const fragmentDeleteBtn = document.getElementById("fragmentDeleteBtn");
+    const identityCurrentLabel = document.getElementById("identityCurrentLabel");
+    const identityFlagsEl = document.getElementById("identityFlags");
+    const identityCheckEmpty = document.getElementById("identityCheckEmpty");
+    const reviewFragmentsEl = document.getElementById("reviewFragments");
+    const reviewIdentityEl = document.getElementById("reviewIdentity");
+    const storyPauseOverlay = document.getElementById("storyPauseOverlay");
+
+    // In-memory only. See the honesty boundary comment above.
+    let storyRoomState = {
+      active: false,
+      fragments: [],
+      nextId: 1,
+      activeFragmentId: null,
+      identityMode: "anonymous",
+      paused: false
+    };
+
+    const startPrompts = {
+      incident: "Write what happened — as much or as little detail as you want.",
+      after: "Write about what came next, in whatever order it comes to you.",
+      misunderstood: "Write about the part people got wrong.",
+      neversaid: "Write the thing you've never been able to say. You can stop at any point.",
+      wantknown: "Write what you wish other people understood.",
+      free: "Write freely. There's no structure to follow here.",
+      before: "Describe what happened before — the lead-up, not the event itself.",
+      afterward: "Describe what happened after.",
+      changed: "Describe what changed.",
+      reacted: "Describe how people reacted.",
+      lost: "Describe what you lost.",
+      wished: "Describe what you wish someone had done.",
+      nodescribe: "You don't have to describe it. Write whatever you want instead — even just how you feel right now."
+    };
+
+    const identityLabels = {
+      anonymous: "Anonymous",
+      pseudonym: "Pseudonym",
+      firstname: "First name only",
+      myname: "My name",
+      notsure: "Not sure"
+    };
+
+    function showPanel(key) {
+      Object.values(panels).forEach((p) => { if (p) p.hidden = true; });
+      if (panels[key]) panels[key].hidden = false;
+      storyRoom.scrollTop = 0;
+      updateBreadcrumbLabel(key);
+    }
+
+    function updateBreadcrumbLabel(key) {
+      const labels = {
+        entry: "THE STORY ROOM",
+        begin: "THE STORY ROOM / BEGIN",
+        cantsay: "THE STORY ROOM / BEGIN",
+        desk: `THE STORY ROOM / ${storyRoomState.fragments.length} FRAGMENT${storyRoomState.fragments.length === 1 ? "" : "S"}`,
+        identity: "THE STORY ROOM / IDENTITY",
+        identitycheck: "THE STORY ROOM / IDENTITY CHECK",
+        review: "THE STORY ROOM / BEFORE SHARING",
+        offer: "THE STORY ROOM / ARCHIVE REVIEW",
+        exit: "THE STORY ROOM / LEAVING"
+      };
+      storyBreadcrumb.textContent = `ARCHIVE / ${labels[key] || "THE STORY ROOM"}`;
+    }
+
+    function enterStoryRoom() {
+      storyRoomState.active = true;
+      storyRoom.hidden = false;
+      storyRoom.setAttribute("aria-hidden", "false");
+      document.body.style.overflow = "hidden";
+      showPanel("entry");
+      if (typeof logTrail === "function") logTrail("Entered the Story Room");
+    }
+
+    function exitStoryRoom() {
+      storyRoomState.active = false;
+      storyRoom.hidden = true;
+      storyRoom.setAttribute("aria-hidden", "true");
+      document.body.style.overflow = "";
+      storyPauseBtn.hidden = true;
+    }
+
+    function beginStorySession() {
+      storyPauseBtn.hidden = false;
+      showPanel("begin");
+    }
+
+    function createStoryFragment(startKey) {
+      const fragment = {
+        id: storyRoomState.nextId++,
+        text: "",
+        privacy: "private",
+        prompt: startPrompts[startKey] || ""
+      };
+      storyRoomState.fragments.push(fragment);
+      storyRoomState.activeFragmentId = fragment.id;
+      renderFragments();
+      openStoryFragment(fragment.id);
+    }
+
+    function getFragment(id) {
+      return storyRoomState.fragments.find((f) => f.id === id);
+    }
+
+    function openStoryFragment(id) {
+      const f = getFragment(id);
+      if (!f) return;
+      storyRoomState.activeFragmentId = id;
+      const index = storyRoomState.fragments.indexOf(f) + 1;
+      fragmentEditorLabel.textContent = `Fragment ${String(index).padStart(2, "0")}`;
+      fragmentPrompt.textContent = f.prompt;
+      fragmentTextarea.value = f.text;
+      fragmentEditor.querySelectorAll(".privacy-pill").forEach((btn) => {
+        btn.classList.toggle("is-active", btn.getAttribute("data-privacy") === f.privacy);
+      });
+      fragmentEditor.hidden = false;
+      fragmentTextarea.focus();
+    }
+
+    function editStoryFragment() {
+      const f = getFragment(storyRoomState.activeFragmentId);
+      if (!f) return;
+      f.text = fragmentTextarea.value;
+    }
+
+    function setFragmentPrivacy(privacy) {
+      const f = getFragment(storyRoomState.activeFragmentId);
+      if (!f) return;
+      f.privacy = privacy;
+      fragmentEditor.querySelectorAll(".privacy-pill").forEach((btn) => {
+        btn.classList.toggle("is-active", btn.getAttribute("data-privacy") === privacy);
+      });
+    }
+
+    function closeFragmentEditor() {
+      editStoryFragment();
+      fragmentEditor.hidden = true;
+      renderFragments();
+      updateBreadcrumbLabel("desk");
+    }
+
+    function deleteFragment(id) {
+      storyRoomState.fragments = storyRoomState.fragments.filter((f) => f.id !== id);
+      fragmentEditor.hidden = true;
+      renderFragments();
+      updateBreadcrumbLabel("desk");
+    }
+
+    function moveFragment(id, direction) {
+      const arr = storyRoomState.fragments;
+      const i = arr.findIndex((f) => f.id === id);
+      const j = i + direction;
+      if (i < 0 || j < 0 || j >= arr.length) return;
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+      renderFragments();
+    }
+
+    function excerpt(text) {
+      if (!text.trim()) return "Not written yet.";
+      return text.length > 90 ? text.slice(0, 90).trim() + "…" : text;
+    }
+
+    function renderFragments() {
+      storyFragmentsEl.innerHTML = storyRoomState.fragments.map((f, i) => `
+        <div class="story-fragment-card" tabindex="0" data-fragment-id="${f.id}" role="button" aria-label="Open fragment ${i + 1}">
+          <span class="story-fragment-card-label">Fragment ${String(i + 1).padStart(2, "0")}</span>
+          <p class="story-fragment-card-excerpt">${excerpt(f.text)}</p>
+          <div class="story-fragment-card-footer">
+            <span class="fragment-privacy-badge" data-state="${f.privacy}">${f.privacy === "share" ? "Ready to share" : f.privacy === "unsure" ? "Not sure" : "Private"}</span>
+            <div class="fragment-reorder-btns">
+              <button type="button" data-move="-1" data-fragment-id="${f.id}" aria-label="Move fragment ${i + 1} earlier">↑</button>
+              <button type="button" data-move="1" data-fragment-id="${f.id}" aria-label="Move fragment ${i + 1} later">↓</button>
+            </div>
+          </div>
+        </div>
+      `).join("");
+      updateBreadcrumbLabel("desk");
+    }
+
+    storyFragmentsEl.addEventListener("click", (e) => {
+      const moveBtn = e.target.closest("[data-move]");
+      if (moveBtn) {
+        moveFragment(Number(moveBtn.getAttribute("data-fragment-id")), Number(moveBtn.getAttribute("data-move")));
+        return;
+      }
+      const card = e.target.closest(".story-fragment-card");
+      if (card) openStoryFragment(Number(card.getAttribute("data-fragment-id")));
+    });
+    storyFragmentsEl.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      const card = e.target.closest(".story-fragment-card");
+      if (card) { e.preventDefault(); openStoryFragment(Number(card.getAttribute("data-fragment-id"))); }
+    });
+
+    // Simple heuristic scan only — explicitly not comprehensive. Flags
+    // emails, phone-like digit runs, @handles, and capitalized multi-word
+    // sequences that might be proper nouns. Never rewrites or deletes text
+    // on its own; the storyteller decides for each flag.
+    function inspectIdentityRisk() {
+      const flags = [];
+      storyRoomState.fragments.forEach((f) => {
+        const text = f.text || "";
+        const patterns = [
+          { type: "Email address", re: /[\w.+-]+@[\w-]+\.[a-z]{2,}/gi },
+          { type: "Phone number", re: /\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b|\b\d{10}\b/g },
+          { type: "Social handle", re: /@[a-z0-9_]{3,}/gi },
+          { type: "Possible proper name", re: /\b[A-Z][a-z]+\s[A-Z][a-z]+\b/g }
+        ];
+        patterns.forEach(({ type, re }) => {
+          const matches = text.match(re) || [];
+          matches.forEach((m) => flags.push({ fragmentId: f.id, type, text: m, decision: null }));
+        });
+      });
+      renderIdentityFlags(flags);
+      showPanel("identitycheck");
+    }
+
+    let currentFlags = [];
+    function renderIdentityFlags(flags) {
+      currentFlags = flags;
+      identityCheckEmpty.hidden = flags.length > 0;
+      identityFlagsEl.innerHTML = flags.map((flag, i) => `
+        <div class="identity-flag">
+          <span class="identity-flag-type">${flag.type}</span>
+          <p class="identity-flag-text">"${flag.text}"</p>
+          <div class="identity-flag-actions" data-flag-index="${i}">
+            <button type="button" data-decision="keep">Keep</button>
+            <button type="button" data-decision="remove">Remove</button>
+            <button type="button" data-decision="generalize">Generalize</button>
+            <button type="button" data-decision="later">Review later</button>
+          </div>
+        </div>
+      `).join("");
+    }
+    identityFlagsEl.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-decision]");
+      if (!btn) return;
+      const group = btn.closest(".identity-flag-actions");
+      group.querySelectorAll("button").forEach((b) => b.classList.remove("is-chosen"));
+      btn.classList.add("is-chosen");
+      const idx = Number(group.getAttribute("data-flag-index"));
+      if (currentFlags[idx]) currentFlags[idx].decision = btn.getAttribute("data-decision");
+      // "Remove" and "Generalize" are the storyteller's own decision to act
+      // on in their own text — this prototype never edits their words for
+      // them. The chosen state is recorded only to show in review.
+    });
+
+    function openStoryReview() {
+      reviewFragmentsEl.innerHTML = storyRoomState.fragments.length
+        ? storyRoomState.fragments.map((f, i) => `
+            <div class="review-fragment">
+              <strong>Fragment ${String(i + 1).padStart(2, "0")}</strong> — ${f.privacy === "share" ? "Ready to share" : f.privacy === "unsure" ? "Not sure" : "Private"}<br>
+              ${excerpt(f.text)}
+            </div>
+          `).join("")
+        : '<p class="story-microcopy story-microcopy--muted">No fragments yet.</p>';
+      reviewIdentityEl.textContent = identityLabels[storyRoomState.identityMode];
+      showPanel("review");
+    }
+
+    function setSharingDecision(decision) {
+      if (decision === "offer") {
+        showPanel("offer");
+        return;
+      }
+      // "keep", "save", and "unsure" all end the same way in this
+      // prototype: nothing leaves the browser. "Save a copy" additionally
+      // triggers a local file download below.
+      if (decision === "save") downloadStoryCopy();
+      showPanel("exit");
+      if (typeof logTrail === "function") logTrail(`Story Room: chose "${decision}"`);
+    }
+
+    function downloadStoryCopy() {
+      const lines = [
+        "AFTER HER — The Story Room",
+        `Identity: ${identityLabels[storyRoomState.identityMode]}`,
+        "This file was generated locally in your browser. It was not sent anywhere.",
+        ""
+      ];
+      storyRoomState.fragments.forEach((f, i) => {
+        lines.push(`Fragment ${i + 1} (${f.privacy}):`);
+        lines.push(f.text || "(not written)");
+        lines.push("");
+      });
+      const blob = new Blob([lines.join("\n")], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "my-story.txt";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    function pauseStoryRoom() {
+      storyRoomState.paused = true;
+      storyPauseOverlay.hidden = false;
+    }
+    function resumeStoryRoom() {
+      storyRoomState.paused = false;
+      storyPauseOverlay.hidden = true;
+    }
+
+    // ---- Wiring ----
+    if (storyRoomToggle) storyRoomToggle.addEventListener("click", enterStoryRoom);
+    storyLeaveBtn.addEventListener("click", exitStoryRoom);
+    document.getElementById("storyLookingBtn").addEventListener("click", exitStoryRoom);
+    document.getElementById("storyBeginBtn").addEventListener("click", beginStorySession);
+
+    document.getElementById("beginOptions").addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-start]");
+      if (btn) { showPanel("desk"); createStoryFragment(btn.getAttribute("data-start")); }
+    });
+    document.getElementById("cantSayBtn").addEventListener("click", () => showPanel("cantsay"));
+    document.getElementById("cantSayBackBtn").addEventListener("click", () => showPanel("begin"));
+    panels.cantsay.querySelector(".story-fragment-options").addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-start]");
+      if (btn) { showPanel("desk"); createStoryFragment(btn.getAttribute("data-start")); }
+    });
+
+    // Every fragment — not just the first — gets the full "how do you want
+    // to begin?" chooser (including the "I don't know how to say it" path).
+    // Routing this straight to a free-write fragment was the bug: it made
+    // the chooser a one-time thing instead of a real, repeatable option.
+    addFragmentBtn.addEventListener("click", () => showPanel("begin"));
+    fragmentDoneBtn.addEventListener("click", closeFragmentEditor);
+    fragmentDeleteBtn.addEventListener("click", () => deleteFragment(storyRoomState.activeFragmentId));
+    fragmentTextarea.addEventListener("input", editStoryFragment);
+    fragmentEditor.querySelectorAll(".privacy-pill").forEach((btn) => {
+      btn.addEventListener("click", () => setFragmentPrivacy(btn.getAttribute("data-privacy")));
+    });
+
+    document.getElementById("identityBtn").addEventListener("click", () => showPanel("identity"));
+    document.getElementById("identityBackBtn").addEventListener("click", () => showPanel("desk"));
+    document.getElementById("identityOptions").addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-identity]");
+      if (!btn) return;
+      storyRoomState.identityMode = btn.getAttribute("data-identity");
+      identityCurrentLabel.textContent = identityLabels[storyRoomState.identityMode];
+      showPanel("desk");
+    });
+
+    // Identity Check is now reached FROM Review (where "Check for
+    // identifying details" actually lives), not before it — its back
+    // button returns to Review, matching how it's actually entered. The
+    // Desk's "Review before leaving" button goes straight to Review, so
+    // the label finally matches the destination.
+    document.getElementById("identityCheckBackBtn").addEventListener("click", () => showPanel("review"));
+    document.getElementById("reviewIdentityCheckBtn").addEventListener("click", inspectIdentityRisk);
+    document.getElementById("reviewBtn").addEventListener("click", openStoryReview);
+
+    document.getElementById("reviewBackBtn").addEventListener("click", () => showPanel("desk"));
+    document.getElementById("destKeepBtn").addEventListener("click", () => setSharingDecision("keep"));
+    document.getElementById("destSaveBtn").addEventListener("click", () => setSharingDecision("save"));
+    document.getElementById("destOfferBtn").addEventListener("click", () => setSharingDecision("offer"));
+    document.getElementById("destUnsureBtn").addEventListener("click", () => setSharingDecision("unsure"));
+    document.getElementById("offerUnderstoodBtn").addEventListener("click", () => showPanel("exit"));
+
+    document.getElementById("returnToArchiveBtn").addEventListener("click", exitStoryRoom);
+    document.getElementById("exitBackToDeskBtn").addEventListener("click", () => showPanel("desk"));
+
+    storyPauseBtn.addEventListener("click", pauseStoryRoom);
+    document.getElementById("pauseContinueBtn").addEventListener("click", resumeStoryRoom);
+    document.getElementById("pauseLeaveBtn").addEventListener("click", () => { resumeStoryRoom(); exitStoryRoom(); });
+
+    // Escape now steps back to a safe point rather than hard-exiting from
+    // anywhere. Previously, pressing Escape while deep in Identity Check or
+    // Review instantly discarded every fragment with no warning — since
+    // nothing is ever saved, that was permanent and silent. Now it only
+    // fully exits from screens where there's nothing written yet to lose
+    // (Entry/Begin/Cantsay) or where the story's already concluded (Exit);
+    // everywhere else it returns to the Desk, where fragments stay visible
+    // and nothing is lost.
+    function currentPanelKey() {
+      return Object.keys(panels).find((key) => panels[key] && !panels[key].hidden);
+    }
+    const safeExitPanels = new Set(["entry", "begin", "cantsay", "exit"]);
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key !== "Escape" || storyRoom.hidden) return;
+      if (!fragmentEditor.hidden) { closeFragmentEditor(); return; }
+      if (!storyPauseOverlay.hidden) { resumeStoryRoom(); return; }
+      const key = currentPanelKey();
+      if (safeExitPanels.has(key)) exitStoryRoom();
+      else showPanel("desk");
+    });
+  })();
 })();
