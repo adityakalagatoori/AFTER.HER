@@ -480,6 +480,11 @@
   <section class="story-panel story-panel-begin" id="panelBegin" hidden>
     <div class="story-panel-inner">
       <h2 class="story-title">You can start anywhere.</h2>
+      <div class="story-voice-prompt">
+        <p>You don't have to write.</p>
+        <p class="story-microcopy">Sometimes words come more easily when spoken.</p>
+        <button class="story-cta-secondary" id="speakStoryBtn" type="button">Speak your story</button>
+      </div>
       <div class="story-fragment-options" id="beginOptions">
         <button class="story-option-paper" data-start="incident" type="button">
           <strong>What happened</strong><span>Start with the event.</span>
@@ -535,7 +540,102 @@
         </div>
       </div>
       <div class="story-fragments" id="storyFragments"></div>
-      <button class="story-add-fragment" id="addFragmentBtn" type="button">+ Add another fragment</button>
+      <div class="story-cta-row">
+        <button class="story-add-fragment" id="addFragmentBtn" type="button">+ Add another fragment</button>
+        <button class="story-add-fragment" id="addVoiceFragmentBtn" type="button">+ Record a voice fragment</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- PANEL: Voice of the Unheard -->
+  <section class="story-panel story-panel-voice" id="panelVoice" hidden>
+    <div class="story-panel-inner">
+
+      <!-- Sub-state: ready to record -->
+      <div class="voice-state" id="voiceStateReady">
+        <span class="label">Voice of the Unheard</span>
+        <h2 class="story-title">You don't have to tell everything.</h2>
+        <p class="story-microcopy">You can stop whenever you want. Nothing is recorded until you press Start — your microphone is not accessed before that.</p>
+        <button class="story-cta-primary" id="voiceStartBtn" type="button">Start Recording</button>
+        <button class="story-cta-secondary" id="voiceCancelReadyBtn" type="button">I'd rather write</button>
+      </div>
+
+      <!-- Sub-state: live recording -->
+      <div class="voice-state" id="voiceStateRecording" hidden>
+        <span class="label" id="voiceFragmentLabel">Voice Fragment 01</span>
+        <div class="voice-recording-indicator">
+          <span class="voice-rec-dot" aria-hidden="true"></span>
+          <span>Recording</span>
+        </div>
+        <canvas class="voice-waveform" id="voiceWaveform" width="480" height="100" aria-hidden="true"></canvas>
+        <div class="voice-timer" id="voiceTimer" role="timer" aria-live="off">00:00</div>
+        <div class="story-cta-row">
+          <button class="story-cta-secondary" id="voicePauseBtn" type="button">Pause</button>
+          <button class="story-cta-primary" id="voiceStopBtn" type="button">Stop</button>
+          <button class="story-cta-secondary" id="voiceCancelRecordingBtn" type="button">Cancel</button>
+        </div>
+      </div>
+
+      <!-- Sub-state: paused -->
+      <div class="voice-state" id="voiceStatePaused" hidden>
+        <h2 class="story-title">Paused.</h2>
+        <p class="story-microcopy">You can continue when you're ready.</p>
+        <canvas class="voice-waveform voice-waveform--frozen" id="voiceWaveformPaused" width="480" height="100" aria-hidden="true"></canvas>
+        <div class="story-cta-row">
+          <button class="story-cta-primary" id="voiceContinueBtn" type="button">Continue</button>
+          <button class="story-cta-secondary" id="voiceStopFromPauseBtn" type="button">Stop Recording</button>
+        </div>
+      </div>
+
+      <!-- Sub-state: reviewing the recorded fragment -->
+      <div class="voice-state" id="voiceStateReview" hidden>
+        <span class="label" id="voiceReviewLabel">Voice Fragment 01</span>
+        <h2 class="story-title story-title--small">Recorded in this session.</h2>
+        <audio class="voice-player" id="voicePlayer" controls preload="metadata"></audio>
+        <div class="fragment-privacy-row">
+          <span class="label">This recording is:</span>
+          <div class="fragment-privacy-options">
+            <button class="privacy-pill" data-voice-privacy="private" type="button">Private</button>
+            <button class="privacy-pill" data-voice-privacy="share" type="button">Original voice, ready to share</button>
+            <button class="privacy-pill" data-voice-privacy="unsure" type="button">Not sure</button>
+          </div>
+          <button class="story-cta-secondary voice-transcript-btn" id="voiceTranscriptBtn" type="button">Transcript only instead →</button>
+        </div>
+        <p class="story-microcopy story-microcopy--muted">Even without your name, a voice can identify a person. You decide what happens to this recording — nothing happens automatically.</p>
+        <div class="story-cta-row">
+          <button class="story-cta-secondary" id="voiceRecordAgainBtn" type="button">Record Again</button>
+          <button class="story-cta-secondary" id="voiceDeleteBtn" type="button">Delete</button>
+          <button class="story-cta-primary" id="voiceContinueToDeskBtn" type="button">Continue</button>
+        </div>
+      </div>
+
+      <!-- Sub-state: microphone unavailable (denied, not found, or unsupported) -->
+      <div class="voice-state" id="voiceStateDenied" hidden>
+        <h2 class="story-title">Microphone unavailable.</h2>
+        <p class="story-microcopy" id="voiceDeniedReason">You can still tell your story through writing.</p>
+        <button class="story-cta-primary" id="voiceReturnToWritingBtn" type="button">Return to Writing</button>
+      </div>
+
+      <!-- Confirmation: replace existing recording -->
+      <div class="voice-state voice-confirm" id="voiceConfirmReplace" hidden>
+        <h2 class="story-title story-title--small">Replace this voice fragment?</h2>
+        <div class="story-cta-row">
+          <button class="story-cta-secondary" id="voiceKeepBothBtn" type="button">Keep Both</button>
+          <button class="story-cta-primary" id="voiceReplaceBtn" type="button">Replace</button>
+          <button class="story-cta-secondary" id="voiceReplaceCancelBtn" type="button">Cancel</button>
+        </div>
+      </div>
+
+      <!-- Confirmation: delete recording -->
+      <div class="voice-state voice-confirm" id="voiceConfirmDelete" hidden>
+        <h2 class="story-title story-title--small">Delete this voice fragment?</h2>
+        <p class="story-microcopy">This recording will be removed from this session.</p>
+        <div class="story-cta-row">
+          <button class="story-cta-primary" id="voiceDeleteConfirmBtn" type="button">Delete</button>
+          <button class="story-cta-secondary" id="voiceDeleteCancelBtn" type="button">Keep</button>
+        </div>
+      </div>
+
     </div>
   </section>
 
@@ -660,6 +760,7 @@
         <button class="story-cta-primary" id="fragmentDoneBtn" type="button">Done for now</button>
         <button class="story-cta-secondary" id="fragmentDeleteBtn" type="button">Delete this fragment</button>
       </div>
+      <button class="fragment-say-instead" id="sayInsteadBtn" type="button">I can't write this — say it instead →</button>
     </div>
   </div>
 

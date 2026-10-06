@@ -3255,6 +3255,105 @@ body::before {
   .story-option-paper:hover, .story-fragment-card:hover { transform: none; }
 }
 
+/* ==========================================================================
+   VOICE OF THE UNHEARD
+   Reuses every existing Story Room token/pattern — no new visual language.
+   ========================================================================== */
+
+.story-voice-prompt {
+  border: 1px solid var(--border-subtle);
+  background: var(--paper-context);
+  padding: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-3);
+  text-align: center;
+}
+.story-voice-prompt p:first-child {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  color: var(--ink-primary);
+  margin-bottom: 4px;
+}
+
+.fragment-say-instead {
+  display: block;
+  margin: var(--space-2) auto 0;
+  font-size: 0.78rem;
+  color: var(--ink-faded);
+  text-decoration: underline;
+  text-decoration-color: var(--border-hover);
+}
+.fragment-say-instead:hover, .fragment-say-instead:focus-visible { color: var(--state-active); }
+
+.voice-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.voice-recording-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--state-active);
+}
+.voice-rec-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--state-active);
+  opacity: 1;
+  animation: voice-rec-pulse 1.8s ease-in-out infinite;
+}
+@keyframes voice-rec-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .voice-rec-dot { animation: none; }
+}
+
+.voice-waveform {
+  width: 100%;
+  max-width: 480px;
+  height: 100px;
+  background: var(--sanctuary-bg);
+  border: 1px solid var(--border-subtle);
+}
+.voice-waveform--frozen { opacity: 0.5; }
+
+.voice-timer {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  color: var(--ink-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.voice-player {
+  width: 100%;
+  max-width: 480px;
+  margin: var(--space-2) 0;
+}
+
+.voice-transcript-btn {
+  margin-top: var(--space-1);
+}
+
+.voice-confirm {
+  background: var(--paper-evidence);
+  border: 1px solid var(--border-subtle);
+  padding: var(--space-3);
+}
+
+@media (max-width: 480px) {
+  .voice-waveform, .voice-player { max-width: 100%; }
+  .story-cta-row { flex-direction: column; width: 100%; }
+  .story-cta-row button { width: 100%; }
+}
+
 /* ---------- Responsive ---------- */
 @media (max-width: 900px) {
   .layer-grid { grid-template-columns: 1fr; }

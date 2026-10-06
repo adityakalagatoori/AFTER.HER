@@ -1494,6 +1494,7 @@
       begin: document.getElementById("panelBegin"),
       cantsay: document.getElementById("panelCantSay"),
       desk: document.getElementById("panelDesk"),
+      voice: document.getElementById("panelVoice"),
       identity: document.getElementById("panelIdentity"),
       identitycheck: document.getElementById("panelIdentityCheck"),
       review: document.getElementById("panelReview"),
@@ -1582,6 +1583,12 @@
     }
 
     function exitStoryRoom() {
+      // Defensive, always-run cleanup: if a recording was active (or any
+      // mic/audio resource was open) when the whole room is closed via the
+      // top-chrome "Leave the Room" button — not just via the voice panel's
+      // own Cancel/Stop controls — it must still be torn down here. This is
+      // the one path that must never leave a microphone running.
+      stopVoiceEngine();
       storyRoomState.active = false;
       storyRoom.hidden = true;
       storyRoom.setAttribute("aria-hidden", "true");
@@ -1597,6 +1604,7 @@
     function createStoryFragment(startKey) {
       const fragment = {
         id: storyRoomState.nextId++,
+        type: "text",
         text: "",
         privacy: "private",
         prompt: startPrompts[startKey] || ""
@@ -1682,13 +1690,30 @@
       return safe.length > 90 ? safe.slice(0, 90).trim() + "…" : safe;
     }
 
+    function privacyLabel(privacy) {
+      return privacy === "share" ? "Ready to share" : privacy === "unsure" ? "Not sure" : "Private";
+    }
+
+    function formatDuration(seconds) {
+      const m = Math.floor(seconds / 60);
+      const s = Math.floor(seconds % 60);
+      return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+    }
+
+    // Text and voice fragments render as members of the same archival
+    // family (same card, same privacy badge, same reorder controls) —
+    // differentiated only by a media-type marker and the excerpt/duration
+    // line, per the "coexist, don't fork into two systems" requirement.
     function renderFragments() {
       storyFragmentsEl.innerHTML = storyRoomState.fragments.map((f, i) => `
         <div class="story-fragment-card" tabindex="0" data-fragment-id="${f.id}" role="button" aria-label="Open fragment ${i + 1}">
-          <span class="story-fragment-card-label">Fragment ${String(i + 1).padStart(2, "0")}</span>
-          <p class="story-fragment-card-excerpt">${excerpt(f.text)}</p>
+          <span class="story-fragment-card-label">Fragment ${String(i + 1).padStart(2, "0")}${f.type === "voice" ? " · Voice" : ""}</span>
+          ${f.type === "voice"
+            ? `<p class="story-fragment-card-excerpt">▶ ${formatDuration(f.duration || 0)} recorded</p>`
+            : `<p class="story-fragment-card-excerpt">${excerpt(f.text)}</p>`
+          }
           <div class="story-fragment-card-footer">
-            <span class="fragment-privacy-badge" data-state="${f.privacy}">${f.privacy === "share" ? "Ready to share" : f.privacy === "unsure" ? "Not sure" : "Private"}</span>
+            <span class="fragment-privacy-badge" data-state="${f.privacy}">${privacyLabel(f.privacy)}</span>
             <div class="fragment-reorder-btns">
               <button type="button" data-move="-1" data-fragment-id="${f.id}" aria-label="Move fragment ${i + 1} earlier">↑</button>
               <button type="button" data-move="1" data-fragment-id="${f.id}" aria-label="Move fragment ${i + 1} later">↓</button>
@@ -1699,6 +1724,13 @@
       updateBreadcrumbLabel("desk");
     }
 
+    function openFragmentCard(id) {
+      const f = getFragment(id);
+      if (!f) return;
+      if (f.type === "voice") reopenVoiceFragment(id);
+      else openStoryFragment(id);
+    }
+
     storyFragmentsEl.addEventListener("click", (e) => {
       const moveBtn = e.target.closest("[data-move]");
       if (moveBtn) {
@@ -1706,12 +1738,12 @@
         return;
       }
       const card = e.target.closest(".story-fragment-card");
-      if (card) openStoryFragment(Number(card.getAttribute("data-fragment-id")));
+      if (card) openFragmentCard(Number(card.getAttribute("data-fragment-id")));
     });
     storyFragmentsEl.addEventListener("keydown", (e) => {
       if (e.key !== "Enter" && e.key !== " ") return;
       const card = e.target.closest(".story-fragment-card");
-      if (card) { e.preventDefault(); openStoryFragment(Number(card.getAttribute("data-fragment-id"))); }
+      if (card) { e.preventDefault(); openFragmentCard(Number(card.getAttribute("data-fragment-id"))); }
     });
 
     // Simple heuristic scan only — explicitly not comprehensive. Flags
@@ -1771,8 +1803,8 @@
       reviewFragmentsEl.innerHTML = storyRoomState.fragments.length
         ? storyRoomState.fragments.map((f, i) => `
             <div class="review-fragment">
-              <strong>Fragment ${String(i + 1).padStart(2, "0")}</strong> — ${f.privacy === "share" ? "Ready to share" : f.privacy === "unsure" ? "Not sure" : "Private"}<br>
-              ${excerpt(f.text)}
+              <strong>Fragment ${String(i + 1).padStart(2, "0")}${f.type === "voice" ? " · Voice" : ""}</strong> — ${privacyLabel(f.privacy)}<br>
+              ${f.type === "voice" ? `▶ ${formatDuration(f.duration || 0)} recording` : excerpt(f.text)}
             </div>
           `).join("")
         : '<p class="story-microcopy story-microcopy--muted">No fragments yet.</p>';
@@ -1817,12 +1849,352 @@
     }
 
     function pauseStoryRoom() {
+      // If a recording is actively in progress, the room-level Pause must
+      // also pause it — otherwise the mic keeps recording, invisibly,
+      // behind the "Take a moment" overlay, while the user reasonably
+      // believes everything has stopped. This routes through the same
+      // pauseRecordingUI() the recording's own Pause button uses, so the
+      // underlying state is identical either way.
+      if (voiceEngine.mediaRecorder && voiceEngine.mediaRecorder.state === "recording") {
+        pauseRecordingUI();
+      }
       storyRoomState.paused = true;
       storyPauseOverlay.hidden = false;
     }
     function resumeStoryRoom() {
       storyRoomState.paused = false;
       storyPauseOverlay.hidden = true;
+    }
+
+    /* ======================================================================
+       VOICE OF THE UNHEARD
+       Real MediaRecorder/getUserMedia/Web Audio integration. The lifecycle
+       discipline here is the actual security/privacy surface of this
+       feature — a microphone stream that outlives its purpose is a real
+       harm, not a theoretical one, so every exit path (stop/cancel/delete/
+       replace/leave-room/escape) routes through the same cleanup function.
+       ====================================================================== */
+    const voiceStates = {
+      ready: document.getElementById("voiceStateReady"),
+      recording: document.getElementById("voiceStateRecording"),
+      paused: document.getElementById("voiceStatePaused"),
+      review: document.getElementById("voiceStateReview"),
+      denied: document.getElementById("voiceStateDenied"),
+      confirmReplace: document.getElementById("voiceConfirmReplace"),
+      confirmDelete: document.getElementById("voiceConfirmDelete")
+    };
+    const voiceWaveform = document.getElementById("voiceWaveform");
+    const voiceTimerEl = document.getElementById("voiceTimer");
+    const voiceDeniedReason = document.getElementById("voiceDeniedReason");
+    const voicePlayer = document.getElementById("voicePlayer");
+    const voiceFragmentLabel = document.getElementById("voiceFragmentLabel");
+    const voiceReviewLabel = document.getElementById("voiceReviewLabel");
+
+    // Engine state lives entirely in memory, same honesty boundary as
+    // everything else in this feature: nothing here touches localStorage,
+    // nothing is ever uploaded, nothing persists past the tab closing.
+    const voiceEngine = {
+      stream: null,
+      mediaRecorder: null,
+      audioContext: null,
+      analyser: null,
+      rafId: null,
+      chunks: [],
+      startedAt: 0,
+      elapsedBeforePause: 0,
+      timerInterval: null,
+      reviewFragmentId: null, // the fragment currently being reviewed/edited
+      returnPanel: "desk" // where Cancel/I'd-rather-write should go back to
+    };
+
+    function showVoiceState(key) {
+      Object.values(voiceStates).forEach((el) => { if (el) el.hidden = true; });
+      if (voiceStates[key]) voiceStates[key].hidden = false;
+    }
+
+    // The single cleanup path every exit route funnels through. Safe to
+    // call even when nothing is active (all checks are defensive).
+    function stopVoiceEngine() {
+      if (voiceEngine.rafId) {
+        cancelAnimationFrame(voiceEngine.rafId);
+        voiceEngine.rafId = null;
+      }
+      if (voiceEngine.timerInterval) {
+        clearInterval(voiceEngine.timerInterval);
+        voiceEngine.timerInterval = null;
+      }
+      if (voiceEngine.mediaRecorder && voiceEngine.mediaRecorder.state !== "inactive") {
+        try { voiceEngine.mediaRecorder.stop(); } catch (err) { /* already stopped */ }
+      }
+      voiceEngine.mediaRecorder = null;
+      if (voiceEngine.stream) {
+        voiceEngine.stream.getTracks().forEach((track) => track.stop());
+        voiceEngine.stream = null;
+      }
+      if (voiceEngine.audioContext && voiceEngine.audioContext.state !== "closed") {
+        voiceEngine.audioContext.close().catch(() => {});
+      }
+      voiceEngine.audioContext = null;
+      voiceEngine.analyser = null;
+      voiceEngine.chunks = [];
+    }
+
+    function enterVoiceMode(returnPanel) {
+      voiceEngine.returnPanel = returnPanel || "desk";
+      voiceEngine.reviewFragmentId = null;
+      showVoiceState("ready");
+      showPanel("voice");
+    }
+
+    function voiceUnavailable(reason) {
+      voiceDeniedReason.textContent = reason;
+      showVoiceState("denied");
+    }
+
+    async function startRecording() {
+      // Microphone is requested here, on explicit user action, never
+      // before — nothing in this feature touches getUserMedia until this
+      // function runs, which only happens from a click on "Start Recording".
+      if (typeof MediaRecorder === "undefined" || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        voiceUnavailable("This browser doesn't support in-browser recording. You can still tell your story through writing.");
+        return;
+      }
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (err) {
+        if (err && err.name === "NotAllowedError") {
+          voiceUnavailable("Microphone access was not granted. You can still tell your story through writing.");
+        } else if (err && err.name === "NotFoundError") {
+          voiceUnavailable("No microphone was found on this device. You can still tell your story through writing.");
+        } else {
+          voiceUnavailable("The microphone couldn't be started. You can still tell your story through writing.");
+        }
+        return;
+      }
+
+      voiceEngine.stream = stream;
+      voiceEngine.chunks = [];
+      voiceEngine.elapsedBeforePause = 0;
+
+      let mediaRecorder;
+      try {
+        mediaRecorder = new MediaRecorder(stream);
+      } catch (err) {
+        stream.getTracks().forEach((t) => t.stop());
+        voiceUnavailable("Recording couldn't be started on this device. You can still tell your story through writing.");
+        return;
+      }
+      voiceEngine.mediaRecorder = mediaRecorder;
+
+      mediaRecorder.addEventListener("dataavailable", (e) => {
+        if (e.data && e.data.size > 0) voiceEngine.chunks.push(e.data);
+      });
+      mediaRecorder.addEventListener("stop", onRecordingStopped);
+
+      // Waveform: AnalyserNode is a progressive enhancement. If Web Audio
+      // construction fails for any reason, recording still proceeds with a
+      // static waveform fallback — the recording itself must never depend
+      // on the visualization working.
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        voiceEngine.audioContext = new AudioCtx();
+        const source = voiceEngine.audioContext.createMediaStreamSource(stream);
+        voiceEngine.analyser = voiceEngine.audioContext.createAnalyser();
+        voiceEngine.analyser.fftSize = 256;
+        source.connect(voiceEngine.analyser);
+      } catch (err) {
+        voiceEngine.analyser = null;
+      }
+
+      const fragmentIndex = storyRoomState.fragments.length + 1;
+      voiceFragmentLabel.textContent = `Voice Fragment ${String(fragmentIndex).padStart(2, "0")}`;
+
+      mediaRecorder.start();
+      voiceEngine.startedAt = Date.now();
+      showVoiceState("recording");
+      startTimer();
+      drawWaveform(voiceWaveform, true);
+    }
+
+    function startTimer() {
+      updateTimerDisplay();
+      voiceEngine.timerInterval = setInterval(updateTimerDisplay, 500);
+    }
+    function updateTimerDisplay() {
+      const elapsed = voiceEngine.elapsedBeforePause + (Date.now() - voiceEngine.startedAt) / 1000;
+      voiceTimerEl.textContent = formatDuration(elapsed);
+    }
+    function currentElapsedSeconds() {
+      return voiceEngine.elapsedBeforePause + (Date.now() - voiceEngine.startedAt) / 1000;
+    }
+
+    function drawWaveform(canvas, live) {
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+      const w = canvas.width, h = canvas.height;
+
+      function renderStaticBar() {
+        ctx.clearRect(0, 0, w, h);
+        ctx.strokeStyle = "rgba(201, 169, 74, 0.4)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, h / 2);
+        ctx.lineTo(w, h / 2);
+        ctx.stroke();
+      }
+
+      if (!live || !voiceEngine.analyser || prefersReducedMotion) {
+        renderStaticBar();
+        return;
+      }
+
+      const bufferLength = voiceEngine.analyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+
+      function draw() {
+        if (!voiceEngine.analyser) return; // engine was torn down mid-frame
+        voiceEngine.rafId = requestAnimationFrame(draw);
+        voiceEngine.analyser.getByteTimeDomainData(dataArray);
+        ctx.clearRect(0, 0, w, h);
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = "rgba(241, 238, 232, 0.6)";
+        ctx.beginPath();
+        const sliceWidth = w / bufferLength;
+        let x = 0;
+        for (let i = 0; i < bufferLength; i++) {
+          const v = dataArray[i] / 128.0;
+          const y = (v * h) / 2;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+          x += sliceWidth;
+        }
+        ctx.stroke();
+      }
+      draw();
+    }
+
+    function pauseRecordingUI() {
+      const mr = voiceEngine.mediaRecorder;
+      if (mr && typeof mr.pause === "function" && mr.state === "recording") {
+        mr.pause();
+      }
+      voiceEngine.elapsedBeforePause = currentElapsedSeconds();
+      if (voiceEngine.timerInterval) { clearInterval(voiceEngine.timerInterval); voiceEngine.timerInterval = null; }
+      if (voiceEngine.rafId) { cancelAnimationFrame(voiceEngine.rafId); voiceEngine.rafId = null; }
+      drawWaveform(document.getElementById("voiceWaveformPaused"), false);
+      showVoiceState("paused");
+    }
+
+    function continueRecordingUI() {
+      const mr = voiceEngine.mediaRecorder;
+      if (mr && typeof mr.resume === "function" && mr.state === "paused") {
+        mr.resume();
+      }
+      voiceEngine.startedAt = Date.now();
+      showVoiceState("recording");
+      startTimer();
+      drawWaveform(voiceWaveform, true);
+    }
+
+    function stopRecordingUI() {
+      if (voiceEngine.timerInterval) { clearInterval(voiceEngine.timerInterval); voiceEngine.timerInterval = null; }
+      if (voiceEngine.rafId) { cancelAnimationFrame(voiceEngine.rafId); voiceEngine.rafId = null; }
+      const mr = voiceEngine.mediaRecorder;
+      if (mr && mr.state !== "inactive") {
+        mr.stop();
+      }
+      // Microphone tracks are stopped as soon as recording ends, regardless
+      // of what the user decides to do with the recording afterward.
+      if (voiceEngine.stream) {
+        voiceEngine.stream.getTracks().forEach((t) => t.stop());
+      }
+    }
+
+    let voiceDuration = 0;
+    function onRecordingStopped() {
+      voiceDuration = currentElapsedSeconds();
+      const blob = new Blob(voiceEngine.chunks, { type: voiceEngine.chunks[0]?.type || "audio/webm" });
+      const url = URL.createObjectURL(blob);
+
+      if (voiceEngine.reviewFragmentId) {
+        // Replacing an existing fragment's recording.
+        const f = getFragment(voiceEngine.reviewFragmentId);
+        if (f && f.audioUrl) URL.revokeObjectURL(f.audioUrl);
+        if (f) { f.audioUrl = url; f.duration = voiceDuration; }
+      } else {
+        const fragment = {
+          id: storyRoomState.nextId++,
+          type: "voice",
+          audioUrl: url,
+          duration: voiceDuration,
+          privacy: "private"
+        };
+        storyRoomState.fragments.push(fragment);
+        voiceEngine.reviewFragmentId = fragment.id;
+      }
+
+      const f = getFragment(voiceEngine.reviewFragmentId);
+      const index = storyRoomState.fragments.indexOf(f) + 1;
+      voiceReviewLabel.textContent = `Voice Fragment ${String(index).padStart(2, "0")}`;
+      voicePlayer.src = url;
+      voiceStates.review.querySelectorAll(".privacy-pill").forEach((btn) => {
+        btn.classList.toggle("is-active", btn.getAttribute("data-voice-privacy") === f.privacy);
+      });
+      showVoiceState("review");
+
+      if (voiceEngine.audioContext && voiceEngine.audioContext.state !== "closed") {
+        voiceEngine.audioContext.close().catch(() => {});
+      }
+      voiceEngine.audioContext = null;
+      voiceEngine.analyser = null;
+    }
+
+    function cancelRecordingInProgress() {
+      stopVoiceEngine();
+      showPanel(voiceEngine.returnPanel);
+    }
+
+    function reopenVoiceFragment(id) {
+      const f = getFragment(id);
+      if (!f) return;
+      voiceEngine.reviewFragmentId = id;
+      voiceEngine.returnPanel = "desk";
+      const index = storyRoomState.fragments.indexOf(f) + 1;
+      voiceReviewLabel.textContent = `Voice Fragment ${String(index).padStart(2, "0")}`;
+      voicePlayer.src = f.audioUrl;
+      voiceStates.review.querySelectorAll(".privacy-pill").forEach((btn) => {
+        btn.classList.toggle("is-active", btn.getAttribute("data-voice-privacy") === f.privacy);
+      });
+      showVoiceState("review");
+      showPanel("voice");
+    }
+
+    function finishVoiceFragment() {
+      renderFragments();
+      voiceEngine.reviewFragmentId = null;
+      showPanel("desk");
+    }
+
+    function requestRecordAgain() {
+      if (voiceEngine.reviewFragmentId) {
+        showVoiceState("confirmReplace");
+      } else {
+        showVoiceState("ready");
+      }
+    }
+
+    function requestDeleteVoice() {
+      showVoiceState("confirmDelete");
+    }
+
+    function confirmDeleteVoice() {
+      const f = getFragment(voiceEngine.reviewFragmentId);
+      if (f && f.audioUrl) URL.revokeObjectURL(f.audioUrl);
+      storyRoomState.fragments = storyRoomState.fragments.filter((fr) => fr.id !== voiceEngine.reviewFragmentId);
+      voiceEngine.reviewFragmentId = null;
+      renderFragments();
+      showPanel("desk");
     }
 
     // ---- Wiring ----
@@ -1850,6 +2222,60 @@
     fragmentDoneBtn.addEventListener("click", closeFragmentEditor);
     fragmentDeleteBtn.addEventListener("click", () => deleteFragment(storyRoomState.activeFragmentId));
     fragmentTextarea.addEventListener("input", editStoryFragment);
+
+    // ---- Voice of the Unheard: wiring ----
+    document.getElementById("speakStoryBtn").addEventListener("click", () => enterVoiceMode("begin"));
+    document.getElementById("addVoiceFragmentBtn").addEventListener("click", () => enterVoiceMode("desk"));
+    document.getElementById("sayInsteadBtn").addEventListener("click", () => {
+      fragmentEditor.hidden = true;
+      enterVoiceMode("desk");
+    });
+
+    document.getElementById("voiceStartBtn").addEventListener("click", startRecording);
+    document.getElementById("voiceCancelReadyBtn").addEventListener("click", () => showPanel(voiceEngine.returnPanel));
+    document.getElementById("voicePauseBtn").addEventListener("click", pauseRecordingUI);
+    document.getElementById("voiceStopBtn").addEventListener("click", stopRecordingUI);
+    document.getElementById("voiceCancelRecordingBtn").addEventListener("click", cancelRecordingInProgress);
+    document.getElementById("voiceContinueBtn").addEventListener("click", continueRecordingUI);
+    document.getElementById("voiceStopFromPauseBtn").addEventListener("click", stopRecordingUI);
+    document.getElementById("voiceReturnToWritingBtn").addEventListener("click", () => showPanel(voiceEngine.returnPanel));
+
+    document.getElementById("voiceContinueToDeskBtn").addEventListener("click", finishVoiceFragment);
+    document.getElementById("voiceRecordAgainBtn").addEventListener("click", requestRecordAgain);
+    document.getElementById("voiceDeleteBtn").addEventListener("click", requestDeleteVoice);
+
+    document.getElementById("voiceKeepBothBtn").addEventListener("click", () => {
+      // Keep the existing fragment as-is; start a brand-new one instead of
+      // replacing it.
+      voiceEngine.reviewFragmentId = null;
+      showVoiceState("ready");
+    });
+    document.getElementById("voiceReplaceBtn").addEventListener("click", () => showVoiceState("ready"));
+    document.getElementById("voiceReplaceCancelBtn").addEventListener("click", () => showVoiceState("review"));
+
+    document.getElementById("voiceDeleteConfirmBtn").addEventListener("click", confirmDeleteVoice);
+    document.getElementById("voiceDeleteCancelBtn").addEventListener("click", () => showVoiceState("review"));
+
+    voiceStates.review.querySelectorAll(".privacy-pill[data-voice-privacy]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const f = getFragment(voiceEngine.reviewFragmentId);
+        if (!f) return;
+        f.privacy = btn.getAttribute("data-voice-privacy");
+        voiceStates.review.querySelectorAll(".privacy-pill").forEach((b) => {
+          b.classList.toggle("is-active", b === btn);
+        });
+      });
+    });
+
+    // Transcription honesty boundary: no transcription backend exists.
+    // This never fabricates a transcript — it tells the truth and reuses
+    // the site's existing small info-modal rather than building a new one.
+    document.getElementById("voiceTranscriptBtn").addEventListener("click", () => {
+      const infoModal = document.getElementById("infoModal");
+      document.getElementById("infoModalTitle").textContent = "Transcription Not Connected";
+      document.getElementById("infoModalBody").textContent = "This prototype currently preserves the original recording only — there is no transcription system connected to it. Nothing has been transcribed, and nothing will be invented in its place. If you'd rather share written words instead of audio, you can keep this recording private and write a text fragment separately.";
+      openOverlay(infoModal);
+    });
     fragmentEditor.querySelectorAll(".privacy-pill").forEach((btn) => {
       btn.addEventListener("click", () => setFragmentPrivacy(btn.getAttribute("data-privacy")));
     });
@@ -1905,6 +2331,13 @@
       if (!fragmentEditor.hidden) { closeFragmentEditor(); return; }
       if (!storyPauseOverlay.hidden) { resumeStoryRoom(); return; }
       const key = currentPanelKey();
+      // Voice panel gets its own branch: Escape here must tear down any
+      // active microphone/recording (stopVoiceEngine) before navigating
+      // anywhere — the generic safe-exit-to-desk logic below doesn't know
+      // about the mic, and silently leaving it running on a stray Escape
+      // press would be exactly the kind of harm section 35 exists to rule
+      // out.
+      if (key === "voice") { stopVoiceEngine(); showPanel(voiceEngine.returnPanel); return; }
       if (safeExitPanels.has(key)) exitStoryRoom();
       else showPanel("desk");
     });
