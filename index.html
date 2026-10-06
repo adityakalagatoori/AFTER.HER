@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>After Her — A Digital Archive</title>
+<meta name="description" content="After Her is a research-grounded digital archive on sexual violence, aftermath and memory in India — documenting real, legally public cases through courts and journalism, never through invented evidence.">
+<link rel="stylesheet" href="style.css">
+<!-- GSAP: choreography engine for the hero and case-opening timelines only.
+     No Three.js/WebGL — see research/design-system.md for why that was
+     evaluated and deferred. Loaded from cdnjs; the site degrades to plain
+     CSS states if this fails to load (checked in script.js). -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js" defer></script>
+</head>
+<body>
+
+<a href="#main" class="skip-link">Skip to content</a>
+
+<!-- ============ BOOT SEQUENCE ============ -->
+<div class="boot-sequence" id="bootSequence" role="status" aria-live="polite">
+  <div class="boot-lines" id="bootLines"></div>
+  <button class="boot-skip" id="bootSkip">Skip Intro →</button>
+</div>
+
+<div class="scroll-progress" id="scrollProgress" aria-hidden="true"></div>
+
+<!-- ============ INVESTIGATION CURSOR ============
+     Desktop-only (disabled on touch and under reduced motion), a small
+     text-label follower, not a replacement cursor graphic. The real system
+     cursor stays visible throughout. -->
+<div class="investigation-cursor" id="investigationCursor" aria-hidden="true">
+  <span id="investigationCursorLabel"></span>
+</div>
+
+<!-- ============ ARCHIVE HUD ============ -->
+<div class="hud" id="hud" aria-hidden="true">
+  <div class="hud-corner hud-tl">
+    <span class="hud-title">AFTER HER</span>
+    <span class="hud-sub">ARCHIVE // 001</span>
+  </div>
+  <div class="hud-corner hud-tr">
+    <a href="#stories" class="hud-link">Case Index</a>
+    <button class="hud-link" id="trailToggle" type="button">Research Trail</button>
+  </div>
+  <div class="hud-corner hud-bl">
+    <span class="hud-sub">ARCHIVE STATUS</span>
+    <span class="hud-live"><span class="hud-dot"></span>LIVE</span>
+  </div>
+  <div class="hud-corner hud-br">
+    <nav class="hud-breadcrumb" id="hudBreadcrumb" aria-label="Archive position">
+      <span class="hud-crumb is-active" id="hudCrumbArchive">ARCHIVE</span>
+      <span class="hud-crumb-sep" id="hudCrumbSep" hidden>/</span>
+      <span class="hud-crumb" id="hudCrumbCase" hidden></span>
+    </nav>
+    <span class="hud-sub-counter" id="hudCounter"><span id="hudSection">01</span><span class="hud-sub-divider">/</span><span id="hudTotal">10</span></span>
+  </div>
+</div>
+
+<!-- ============ NAVIGATION ============ -->
+<nav class="site-nav" id="siteNav" aria-label="Primary">
+  <a href="#top" class="nav-logo">AFTER HER</a>
+  <button class="nav-toggle" id="navToggle" aria-expanded="false" aria-controls="navLinks" aria-label="Open menu">
+    <span></span><span></span><span></span>
+  </button>
+  <ul class="nav-links" id="navLinks">
+    <li><a href="#archive">Archive</a></li>
+    <li><a href="#stories">Case Index</a></li>
+    <li><a href="#system">The System</a></li>
+    <li><a href="#data">Data</a></li>
+    <li><a href="#about">About</a></li>
+    <li><button class="nav-search-btn" id="searchToggle" type="button">Search Archive</button></li>
+  </ul>
+</nav>
+
+<main id="main">
+
+  <!-- ============ HERO — Archive Room ============
+       A dark, physically constructed archive interior, built entirely from
+       CSS/SVG (no sourced photography — see the hero implementation note
+       in research/design-system.md). Emotional target: gravity and
+       institutional seriousness, not suspense or threat. No people, no
+       implied violence, no evidence imagery. -->
+  <section class="hero" id="top" data-section-label="Entry">
+    <div class="hero-archive" id="heroArchive" aria-hidden="true">
+      <div class="ha-layer ha-architecture" id="haArchitecture"></div>
+      <div class="ha-layer ha-shelving" id="haShelving"></div>
+      <div class="ha-layer ha-folder" id="haFolder">
+        <span class="ha-folder-tab"></span>
+      </div>
+      <div class="ha-layer ha-document" id="haDocument"></div>
+      <div class="ha-light" id="haLight"></div>
+    </div>
+    <p class="hero-label" id="heroLabel">A Digital Archive</p>
+    <h1 class="hero-title" id="heroTitle">
+      <span class="line-1">AFTER</span>
+      <span class="line-2">HER<span class="dot">.</span></span>
+    </h1>
+    <p class="hero-sub" id="heroSub">The world remembers the incident.<br>This archive remembers what happened after.</p>
+    <div class="scroll-cue" id="heroScrollCue" aria-hidden="true">
+      <span>Scroll to enter the archive</span>
+      <div class="scroll-line"></div>
+    </div>
+  </section>
+
+  <!-- ============ INTRODUCTION ============ -->
+  <section class="section" id="archive" data-section-label="The Archive">
+    <p class="label reveal">The Archive</p>
+    <p class="statement reveal">A crime can last minutes.<br><em>Its consequences can last decades.</em></p>
+    <p class="body-copy reveal">This archive exists to ask a question society rarely sits with: once the headlines fade, who remains to carry what happened? The case records here are real and sourced — documented through court judgments and named journalism, never invented. The chapters below are a reading lens for approaching them, not a description of any one person. Nothing redacted, timestamped, or quoted in this archive has been fabricated — where a detail isn't reliably sourced, the record says so plainly instead of filling the gap.</p>
+    <div class="rule" aria-hidden="true"></div>
+  </section>
+
+  <!-- ============ READING LENS (five chapters) ============ -->
+  <section class="section" data-section-label="How to Read a Case">
+    <h2 class="layers-heading reveal">Every case file below opens the same way.</h2>
+    <div class="layer-grid" id="layerGrid">
+
+      <button class="layer-card" aria-expanded="false" aria-controls="layer-panel-1" id="layer-btn-1">
+        <span class="layer-num">01</span>
+        <span class="layer-title">Before</span>
+        <span class="layer-question">Who was she before the world knew her story?</span>
+        <div class="layer-panel" id="layer-panel-1" role="region" aria-labelledby="layer-btn-1">
+          <span class="layer-panel-inner">For most cases in this archive, Indian law protects this question by design — identity before the incident is not public record, and this archive will not try to reconstruct it. Where a person chose to speak publicly under her own name, that choice is noted explicitly.</span>
+        </div>
+      </button>
+
+      <button class="layer-card" aria-expanded="false" aria-controls="layer-panel-2" id="layer-btn-2">
+        <span class="layer-num">02</span>
+        <span class="layer-title">What Happened</span>
+        <span class="layer-question">What is known about the incident, and on what authority?</span>
+        <div class="layer-panel" id="layer-panel-2" role="region" aria-labelledby="layer-btn-2">
+          <span class="layer-panel-inner">Stated plainly, at whatever level of detail court judgments and named reporting actually establish — never filled in with assumed detail, and never illustrated with graphic imagery.</span>
+        </div>
+      </button>
+
+      <button class="layer-card" aria-expanded="false" aria-controls="layer-panel-3" id="layer-btn-3">
+        <span class="layer-num">03</span>
+        <span class="layer-title">The Legal Journey</span>
+        <span class="layer-question">Police. Trial court. Appeals. How long, and to what outcome?</span>
+        <div class="layer-panel" id="layer-panel-3" role="region" aria-labelledby="layer-btn-3">
+          <span class="layer-panel-inner">A node-by-node timeline built only from verified milestones. A stage with no reliable public date is marked unverified rather than guessed at.</span>
+        </div>
+      </button>
+
+      <button class="layer-card" aria-expanded="false" aria-controls="layer-panel-4" id="layer-btn-4">
+        <span class="layer-num">04</span>
+        <span class="layer-title">Aftermath</span>
+        <span class="layer-question">What changed afterward — in law, in institutions, in public memory?</span>
+        <div class="layer-panel" id="layer-panel-4" role="region" aria-labelledby="layer-btn-4">
+          <span class="layer-panel-inner">Legislative and institutional consequences the case is documented to have caused, distinct from what simply happened near it in time.</span>
+        </div>
+      </button>
+
+      <button class="layer-card" aria-expanded="false" aria-controls="layer-panel-5" id="layer-btn-5">
+        <span class="layer-num">05</span>
+        <span class="layer-title">What Remains</span>
+        <span class="layer-question">What stayed unresolved, and what does the case's current status actually say?</span>
+        <div class="layer-panel" id="layer-panel-5" role="region" aria-labelledby="layer-btn-5">
+          <span class="layer-panel-inner">Some cases in this archive end in conviction. One ends with no one convicted of the offense itself. Both are recorded as they stand — closure is not assumed where the record doesn't support it.</span>
+        </div>
+      </button>
+
+    </div>
+  </section>
+
+  <div class="torn-divider tear-large" aria-hidden="true"></div>
+
+  <!-- ============ ARCHIVE CONSTELLATION ============ -->
+  <section class="section" id="stories" data-section-label="Case Index">
+    <h2 class="archive-heading reveal">The Case Index</h2>
+    <p class="body-copy reveal">Six documented cases, 1972–2024. Each point below is real — identified by its established legal case-name, never by invented detail. Select a point to open its file.</p>
+
+    <div class="constellation-filters" role="group" aria-label="Filter the case index">
+      <button class="filter-btn" data-filter="all" aria-pressed="true">All Cases</button>
+      <button class="filter-btn" data-filter="convicted" aria-pressed="false">Convicted</button>
+      <button class="filter-btn" data-filter="acquitted" aria-pressed="false">Ended in Acquittal</button>
+      <button class="filter-btn" data-filter="reform" aria-pressed="false">Produced Legal Reform</button>
+    </div>
+
+    <div class="constellation" id="constellation" role="group" aria-label="Case index — six documented cases">
+      <svg class="constellation-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+        <line x1="12" y1="70" x2="30" y2="25" />
+        <line x1="30" y1="25" x2="52" y2="55" />
+        <line x1="52" y1="55" x2="68" y2="18" />
+        <line x1="68" y1="18" x2="85" y2="62" />
+        <line x1="85" y1="62" x2="92" y2="30" />
+      </svg>
+
+      <button class="const-point" data-cursor="Select Case" data-story="mathura" data-tags="acquitted reform" style="--x:12%; --y:70%;">
+        <span class="const-dot"></span>
+        <span class="const-tip">
+          <strong>AH-001 · Mathura</strong>
+          1972–1983 · Maharashtra<br>Status: Acquitted; led to 1983 law reform
+        </span>
+      </button>
+      <button class="const-point" data-cursor="Select Case" data-story="bhanwari" data-tags="acquitted reform" style="--x:30%; --y:25%;">
+        <span class="const-dot"></span>
+        <span class="const-tip">
+          <strong>AH-002 · Bhanwari Devi</strong>
+          1992–1997 · Rajasthan<br>Status: Acquitted at trial; Vishaka Guidelines issued
+        </span>
+      </button>
+      <button class="const-point" data-cursor="Select Case" data-story="nirbhaya" data-tags="convicted reform" style="--x:52%; --y:55%;">
+        <span class="const-dot"></span>
+        <span class="const-tip">
+          <strong>AH-003 · "Nirbhaya"</strong>
+          2012–2020 · Delhi<br>Status: Convicted; sentence carried out
+        </span>
+      </button>
+      <button class="const-point" data-cursor="Select Case" data-story="kathua" data-tags="convicted" style="--x:68%; --y:18%;">
+        <span class="const-dot"></span>
+        <span class="const-tip">
+          <strong>AH-004 · Kathua</strong>
+          2018–2019 · Jammu &amp; Kashmir<br>Status: 6 convicted, 1 acquitted
+        </span>
+      </button>
+      <button class="const-point" data-cursor="Select Case" data-story="hathras" data-tags="acquitted" style="--x:85%; --y:62%;">
+        <span class="const-dot"></span>
+        <span class="const-tip">
+          <strong>AH-005 · Hathras</strong>
+          2020–2023 · Uttar Pradesh<br>Status: No rape conviction
+        </span>
+      </button>
+      <button class="const-point" data-cursor="Select Case" data-story="bilkis" data-tags="convicted" style="--x:92%; --y:30%;">
+        <span class="const-dot"></span>
+        <span class="const-tip">
+          <strong>AH-006 · Bilkis Bano</strong>
+          2002–2024 · Gujarat<br>Status: Convictions stand; remission quashed
+        </span>
+      </button>
+    </div>
+  </section>
+
+  <!-- ============ REMEMBERED VS UNDERREPORTED ============ -->
+  <section class="section">
+    <h2 class="rvf-heading reveal">Why Does One Case Remain, and Another Disappear?</h2>
+    <p class="rvf-question reveal">Not a ranking of suffering — a comparison of two real, documented cases and how differently the record retained them.</p>
+
+    <div class="rvf-slider" id="rvfSlider">
+      <div class="rvf-pane rvf-pane-left">
+        <span class="rvf-pane-label">Remembered</span>
+        <h3 class="rvf-pane-title">"Nirbhaya," 2012</h3>
+        <p class="rvf-pane-copy">Sustained national protest for weeks. Directly produced the Criminal Law (Amendment) Act, 2013 — new offenses, longer sentences, a redefinition of sexual assault still in force today.</p>
+      </div>
+      <div class="rvf-pane rvf-pane-right">
+        <span class="rvf-pane-label">Underreported</span>
+        <h3 class="rvf-pane-title">Hathras, 2020</h3>
+        <p class="rvf-pane-copy">Widely covered at first, including the forced night cremation. By the March 2023 verdict — three acquittals, no rape conviction — national attention had receded far below what the crime itself drew.</p>
+      </div>
+      <input type="range" min="0" max="100" value="50" class="rvf-handle" id="rvfHandle" aria-label="Drag to compare how each case was remembered">
+    </div>
+    <p class="body-copy reveal body-copy--centered-note">One documented comparison, not a statistical claim about all cases. Full sourcing in each case file above.</p>
+  </section>
+
+  <!-- ============ THE SYSTEM ============ -->
+  <section class="section" id="system" data-section-label="The System">
+    <p class="label reveal">Zooming Out</p>
+    <p class="statement reveal">No case moves through just one institution.</p>
+    <p class="body-copy reveal">Select a node to see how it bears on the six cases in this archive.</p>
+
+    <div class="system-diagram" id="systemDiagram">
+      <div class="system-center">CASE</div>
+      <button class="system-node" data-node="media" style="--angle:0deg;">Media</button>
+      <button class="system-node" data-node="police" style="--angle:60deg;">Police</button>
+      <button class="system-node" data-node="courts" style="--angle:120deg;">Courts</button>
+      <button class="system-node" data-node="policy" style="--angle:180deg;">Policy</button>
+      <button class="system-node" data-node="society" style="--angle:240deg;">Society</button>
+      <button class="system-node" data-node="aftermath" style="--angle:300deg;">Aftermath</button>
+    </div>
+    <div class="system-readout" id="systemReadout" aria-live="polite">
+      <p class="system-readout-placeholder">Select a node above.</p>
+    </div>
+  </section>
+
+  <div class="torn-divider tear-small" aria-hidden="true"></div>
+
+  <!-- ============ DATA SECTION ============ -->
+  <section class="section" id="data" data-section-label="The Data">
+    <p class="label reveal">Beyond These Six Cases</p>
+    <p class="statement reveal">These six cases sit inside a much larger, slower system.</p>
+    <div class="data-reveal" id="dataReveal">
+      <div class="data-stat reveal" data-stat="0">
+        <span class="data-number stamped">~90%</span>
+        <span class="data-def">of rape trial cases before Indian courts remained pending at the end of 2024.</span>
+      </div>
+      <div class="data-stat reveal" data-stat="1">
+        <span class="data-number stamped">24–27%</span>
+        <span class="data-def">has been the approximate conviction rate for completed rape trials across most of the last two decades.</span>
+      </div>
+      <div class="data-stat reveal" data-stat="2">
+        <span class="data-number stamped">~84</span>
+        <span class="data-def">rape cases were registered with police per day across India in 2024 — roughly one every seventeen minutes.</span>
+      </div>
+    </div>
+    <p class="data-source body-copy reveal">Source: NCRB-derived reporting via <a href="https://www.deccanherald.com/india/10-years-of-nirbhaya-conviction-rate-in-crimes-against-women-just-265-in-india-1172228.html" target="_blank" rel="noopener noreferrer">Deccan Herald</a> and <a href="https://factly.in/data-huge-pendency-low-conviction-the-story-of-crimes-against-women" target="_blank" rel="noopener noreferrer">Factly</a>. Figures describe national trends, not the six cases profiled above individually. Conviction-rate figures reflect cases concluded within a given year, not a cohort's eventual outcome.</p>
+  </section>
+
+  <!-- ============ TIMELINE ============ -->
+  <section class="section" id="aftermath" data-section-label="Aftermath">
+    <p class="label reveal">The Shape of Aftermath</p>
+    <p class="statement reveal">What comes after is rarely quick, and rarely loud.</p>
+    <div class="timeline" id="timeline">
+      <div class="timeline-progress-track" aria-hidden="true">
+        <div class="timeline-progress-fill" id="timelineProgressFill"></div>
+      </div>
+      <div class="timeline-item reveal">
+        <span class="timeline-date">The Incident</span>
+        <h3 class="timeline-title">A single, documented event</h3>
+      </div>
+      <div class="timeline-item reveal">
+        <span class="timeline-date">Investigation</span>
+        <h3 class="timeline-title">Months to years before trial begins</h3>
+      </div>
+      <div class="timeline-item reveal">
+        <span class="timeline-date">Trial</span>
+        <h3 class="timeline-title">Where most cases sit the longest</h3>
+      </div>
+      <div class="timeline-item reveal">
+        <span class="timeline-date">Verdict</span>
+        <h3 class="timeline-title">Conviction, acquittal, or neither cleanly</h3>
+      </div>
+      <div class="timeline-item reveal">
+        <span class="timeline-date">After</span>
+        <h3 class="timeline-title">What the law can't settle</h3>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ THE DAY AFTER ============ -->
+  <section class="section">
+    <h2 class="day-after-heading reveal">After the Headline</h2>
+    <p class="statement statement--compact reveal">We talk about the moment.<br><em>We rarely talk about the years that follow.</em></p>
+    <div class="category-grid" id="categoryGrid">
+      <button class="category-btn" aria-pressed="false" aria-controls="cat-panel-family" id="cat-btn-family">Family</button>
+      <button class="category-btn" aria-pressed="false" aria-controls="cat-panel-justice" id="cat-btn-justice">Justice</button>
+      <button class="category-btn" aria-pressed="false" aria-controls="cat-panel-society" id="cat-btn-society">Society</button>
+      <button class="category-btn" aria-pressed="false" aria-controls="cat-panel-self" id="cat-btn-self">Self</button>
+    </div>
+    <div class="category-panel" id="cat-panel-family" role="region" aria-labelledby="cat-btn-family">
+      <div class="category-panel-inner">How families carry weight they never asked for — sometimes becoming the quiet infrastructure of recovery, sometimes becoming another thing to recover from.</div>
+    </div>
+    <div class="category-panel" id="cat-panel-justice" role="region" aria-labelledby="cat-btn-justice">
+      <div class="category-panel-inner">Trials that take years — the data section above shows how long, on average — and outcomes that rarely resemble closure.</div>
+    </div>
+    <div class="category-panel" id="cat-panel-society" role="region" aria-labelledby="cat-btn-society">
+      <div class="category-panel-inner">Public attention arrives fast and leaves faster, as the Nirbhaya/Hathras comparison above documents directly.</div>
+    </div>
+    <div class="category-panel" id="cat-panel-self" role="region" aria-labelledby="cat-btn-self">
+      <div class="category-panel-inner">The private, unphotographed work of continuing — a self that has to be rebuilt on terms no one else can see or grade.</div>
+    </div>
+  </section>
+
+  <!-- ============ WHAT WAS NEVER HEARD ============ -->
+  <section class="never-heard">
+    <h2 class="never-heard-title reveal">What Was Never Heard?</h2>
+    <div class="never-heard-list reveal">
+      <p>The case that never reached a verdict anyone followed.</p>
+      <p>The appeal still pending, uncovered by any newsroom.</p>
+      <p>The record this archive doesn't have access to yet.</p>
+    </div>
+    <button class="never-heard-cta" id="silenceCta">Explore the Silence →</button>
+  </section>
+
+  <!-- ============ IF YOU HAVE A STORY ============ -->
+  <section class="section share-section" id="about">
+    <h2 class="share-heading reveal">If You Have a Story</h2>
+    <p class="share-copy reveal">Some stories are public. Some belong only to the person who lived them. Some should never have to be told publicly.</p>
+    <button class="share-cta reveal" id="shareCta">Learn About Sharing Safely →</button>
+  </section>
+
+  <!-- ============ FINAL SECTION ============ -->
+  <section class="final-section">
+    <p class="final-line reveal">A case has a number.</p>
+    <p class="final-line reveal">A court has a file.</p>
+    <p class="final-line reveal">A newspaper has a headline.</p>
+    <p class="final-line emphasis reveal">A person has a life.</p>
+    <p class="final-mark">AFTER HER</p>
+    <p class="final-mark final-mark-sub">The archive continues.</p>
+    <a href="#top" class="begin-again">Begin Again ↑</a>
+  </section>
+
+</main>
+
+<!-- ============ FOOTER ============ -->
+<footer class="site-footer">
+  <p class="footer-logo">AFTER HER</p>
+  <p class="footer-copy">A research-grounded digital archive about memory, aftermath and the systems that decide which stories of sexual violence are remembered.</p>
+  <div class="footer-links">
+    <a href="#stories">Case Index</a>
+    <a href="#about">About</a>
+    <button id="safetyLink" class="footer-link-btn">Safety</button>
+    <button id="privacyLink" class="footer-link-btn">Privacy</button>
+  </div>
+  <p class="footer-disclaimer">The Case Index documents real, publicly adjudicated Indian legal cases, identified only by established case-names and sourced to named journalism and court records (cited within each case file). No personal survivor information beyond what is already public record is reproduced here, and no document, quote, timestamp or statistic on this site is invented. The reading-lens chapters, timeline labels, and systems diagram are a conceptual framework and do not describe any specific individual.</p>
+</footer>
+
+<!-- ============ PHOTOGRAPH INSPECTION ============
+     Click-to-enlarge for the six real verified institutional photographs.
+     Same image, same metadata — just larger and isolated for closer
+     reading of the caption/source, not a different crop or filter. -->
+<div class="modal-overlay photo-inspect" id="photoInspect" role="dialog" aria-modal="true" aria-labelledby="photoInspectCaption" hidden>
+  <div class="modal photo-inspect-modal">
+    <button class="modal-close" data-cursor="Return" data-close>Close ✕</button>
+    <img id="photoInspectImage" src="" alt="">
+    <p class="photo-inspect-caption" id="photoInspectCaption"></p>
+  </div>
+</div>
+
+<!-- ============ COMMAND PALETTE ============
+     Keyboard power-user navigation layer, opened with "/". Plain list, not
+     a developer-terminal look. -->
+<div class="command-palette" id="commandPalette" aria-hidden="true" role="dialog" aria-label="Archive index commands">
+  <div class="command-palette-inner">
+    <span class="label">Archive Index</span>
+    <ul class="command-list" id="commandList">
+      <li><button class="command-item" type="button" data-command="search">Search Cases</button></li>
+      <li><button class="command-item" type="button" data-command="timeline">Open Timeline</button></li>
+      <li><button class="command-item" type="button" data-command="sources">View Data</button></li>
+      <li><button class="command-item" type="button" data-command="system">View The System</button></li>
+      <li><button class="command-item" type="button" data-command="trail">My Research Trail</button></li>
+      <li><button class="command-item" type="button" data-command="return">Return to Archive</button></li>
+    </ul>
+    <span class="command-hint">Press Esc to close</span>
+  </div>
+</div>
+
+<!-- ============ ARCHIVE SEARCH ============
+     Client-side only, over the six real cases already in the page — no
+     network request, no AI summarization. Results are plain matches on
+     verified case text. -->
+<div class="archive-search" id="archiveSearch" aria-hidden="true">
+  <div class="archive-search-inner">
+    <button class="modal-close" data-cursor="Return" id="searchClose" type="button">Close ✕</button>
+    <label class="label" for="searchInput">Search Archive</label>
+    <input type="text" id="searchInput" class="archive-search-input" placeholder="Case name, year, location, legal status…" autocomplete="off">
+    <ul class="archive-search-results" id="searchResults"></ul>
+    <p class="archive-search-empty" id="searchEmpty">Type to search the six case files — titles, locations, status, and chapter text.</p>
+  </div>
+</div>
+
+<!-- ============ CASE-OPENING TRANSITION ============
+     A short, skippable (reduced-motion-safe) physical sequence that plays
+     before the real dossier appears: folder approaches, opens, a paper
+     lifts and fills the screen carrying the case's real title/image, then
+     hands off to the actual dossier-overlay below. Decorative only — all
+     real case content lives in the dossier-overlay. -->
+<div class="file-transition" id="fileTransition" aria-hidden="true">
+  <div class="ft-folder" id="ftFolder">
+    <div class="ft-folder-tab">Case File</div>
+    <div class="ft-folder-cover" id="ftCover">
+      <span class="ft-folder-code" id="ftFolderCode">AH-000</span>
+      <span class="ft-folder-title" id="ftFolderTitle">Case</span>
+    </div>
+    <div class="ft-papers">
+      <div class="ft-paper ft-paper-4"><span class="ft-paper-label">Source Index</span></div>
+      <div class="ft-paper ft-paper-3"><span class="ft-paper-label">Legal Record</span></div>
+      <div class="ft-paper ft-paper-2"><span class="ft-paper-label">Biographical Record</span></div>
+      <div class="ft-paper ft-paper-1" id="ftPaper1">
+        <span class="ft-paper-label">Case Record</span>
+        <div class="ft-paper-content" id="ftPaperContent">
+          <span class="ft-paper-code" id="ftPaperCode">AH-000</span>
+          <h3 class="ft-paper-title" id="ftPaperTitle">Case</h3>
+          <div class="ft-paper-image-wrap" id="ftPaperImageWrap">
+            <img id="ftPaperImage" alt="" src="">
+          </div>
+          <span class="ft-paper-pin" id="ftPaperPin">Source verified</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ CASE DOSSIER (full overlay) ============ -->
+<div class="dossier-overlay" id="dossierOverlay" role="dialog" aria-modal="true" aria-labelledby="dossierTitle" hidden>
+  <div class="dossier document-stack">
+    <div class="dossier-header">
+      <span class="dossier-folder-tab">Case File</span>
+      <div>
+        <span class="dossier-code" id="dossierCode">AH-000</span>
+        <h2 class="dossier-title" id="dossierTitle">Case</h2>
+      </div>
+      <div class="dossier-header-actions">
+        <button class="evidence-toggle" id="evidenceToggle" aria-pressed="false">Evidence Mode</button>
+        <button class="modal-close" data-cursor="Return" data-close>Close ✕</button>
+      </div>
+    </div>
+    <div class="dossier-meta" id="dossierMeta"></div>
+
+    <div class="dossier-body" id="dossierBody">
+      <!-- populated by script.js -->
+    </div>
+  </div>
+</div>
+
+<!-- ============ SOURCE SHEET ============
+     Slides in over the active document (right on desktop, bottom on
+     mobile, per the approved B12/B13 spec) rather than opening a generic
+     modal or leaving the site immediately. Shows only fields present in
+     the actual source data — nothing here is invented. -->
+<div class="source-sheet" id="sourceSheet" aria-hidden="true" role="region" aria-label="Source details">
+  <div class="source-sheet-inner">
+    <button class="modal-close" data-cursor="Return" data-close-source>Close ✕</button>
+    <span class="label source-sheet-type" id="sourceSheetType">Named Reporting</span>
+    <h3 class="source-sheet-publisher" id="sourceSheetPublisher">Publisher</h3>
+    <p class="source-sheet-title" id="sourceSheetTitle">Title</p>
+    <div class="source-sheet-divider"></div>
+    <span class="label">This Source</span>
+    <p class="source-sheet-context" id="sourceSheetContext">Context</p>
+    <a class="source-sheet-open" id="sourceSheetLink" href="#" target="_blank" rel="noopener noreferrer">Open Original →</a>
+  </div>
+</div>
+
+<!-- ============ SMALL MODALS ============ -->
+<div class="modal-overlay" id="shareModal" role="dialog" aria-modal="true" aria-labelledby="shareModalTitle" hidden>
+  <div class="modal">
+    <button class="modal-close" data-cursor="Return" data-close>Close ✕</button>
+    <h3 class="modal-title" id="shareModalTitle">Sharing Safely</h3>
+    <div class="modal-body">
+      <p>This prototype does not yet collect any stories. A future version of this archive would prioritize, before anything else:</p>
+      <ul>
+        <li>Anonymity by default, not as an afterthought.</li>
+        <li>Informed consent at every stage, revocable at any time.</li>
+        <li>A clear, simple process for removal requests.</li>
+        <li>No collection of unnecessary personal information.</li>
+        <li>No public identification without explicit, written consent.</li>
+        <li>Visible links to safety and support resources.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="silenceModal" role="dialog" aria-modal="true" aria-labelledby="silenceModalTitle" hidden>
+  <div class="modal">
+    <button class="modal-close" data-cursor="Return" data-close>Close ✕</button>
+    <h3 class="modal-title" id="silenceModalTitle">The Silence Archive</h3>
+    <div class="modal-body">
+      <p>This section of the archive would hold cases that never reached public attention — not because they mattered less, but because attention is unevenly distributed, as the Nirbhaya/Hathras comparison above documents. No such records exist in this prototype yet. A future version would gather them with the same sourcing standard as the six cases already here — verified first, published second.</p>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="trailModal" role="dialog" aria-modal="true" aria-labelledby="trailModalTitle" hidden>
+  <div class="modal">
+    <button class="modal-close" data-cursor="Return" data-close>Close ✕</button>
+    <h3 class="modal-title" id="trailModalTitle">My Research Trail</h3>
+    <div class="modal-body">
+      <p>What you've opened this session — kept only in this browser tab, sent nowhere, gone on refresh.</p>
+      <ol class="trail-list" id="trailList"></ol>
+      <p class="trail-empty" id="trailEmpty">Nothing recorded yet. Open a case to begin.</p>
+      <button class="trail-clear" id="trailClear" type="button">Clear Trail</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="infoModal" role="dialog" aria-modal="true" aria-labelledby="infoModalTitle" hidden>
+  <div class="modal">
+    <button class="modal-close" data-cursor="Return" data-close>Close ✕</button>
+    <h3 class="modal-title" id="infoModalTitle">Note</h3>
+    <div class="modal-body" id="infoModalBody"></div>
+  </div>
+</div>
+
+<script src="script.js" defer></script>
+</body>
+</html>
