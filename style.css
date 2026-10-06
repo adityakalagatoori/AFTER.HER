@@ -3284,11 +3284,20 @@ body::before {
 }
 .fragment-say-instead:hover, .fragment-say-instead:focus-visible { color: var(--state-active); }
 
+/* Same [hidden]-vs-author-display bug fixed repeatedly elsewhere in this
+   file (see .story-room, .story-panel, .fragment-editor, .story-pause-
+   overlay, .boot-sequence, .modal-overlay) — and reintroduced here by not
+   applying the same pattern to this new class. Without :not([hidden]),
+   every voice sub-state (Ready, Recording, Paused, Review...) renders
+   simultaneously, stacked, regardless of showVoiceState()'s hidden
+   toggles — exactly what the reported screenshots showed. */
 .voice-state {
-  display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--space-2);
+}
+.voice-state:not([hidden]) {
+  display: flex;
 }
 
 .voice-recording-indicator {
