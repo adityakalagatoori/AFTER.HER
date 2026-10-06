@@ -2111,6 +2111,28 @@
       }
     }
 
+    // Chromium-based browsers frequently fail to write a proper Duration
+    // into the WebM container MediaRecorder produces, so the <audio>
+    // element reports duration as Infinity/unknown — the native player then
+    // shows "0:00 / 0:00" and the seek bar doesn't work correctly, even
+    // though the audio data itself is intact and playable. This is a
+    // long-documented browser quirk, not a bug in this recording logic.
+    // The standard workaround: seek far forward once to force the browser
+    // to walk the whole file and recompute the real duration, then seek
+    // back to the start.
+    function fixAudioDuration(audioEl) {
+      audioEl.addEventListener("loadedmetadata", function onMeta() {
+        audioEl.removeEventListener("loadedmetadata", onMeta);
+        if (audioEl.duration === Infinity || Number.isNaN(audioEl.duration)) {
+          audioEl.currentTime = 1e7;
+          audioEl.addEventListener("timeupdate", function onTime() {
+            audioEl.removeEventListener("timeupdate", onTime);
+            audioEl.currentTime = 0;
+          }, { once: true });
+        }
+      }, { once: true });
+    }
+
     let voiceDuration = 0;
     function onRecordingStopped() {
       voiceDuration = currentElapsedSeconds();
@@ -2138,6 +2160,7 @@
       const index = storyRoomState.fragments.indexOf(f) + 1;
       voiceReviewLabel.textContent = `Voice Fragment ${String(index).padStart(2, "0")}`;
       voicePlayer.src = url;
+      fixAudioDuration(voicePlayer);
       voiceStates.review.querySelectorAll(".privacy-pill").forEach((btn) => {
         btn.classList.toggle("is-active", btn.getAttribute("data-voice-privacy") === f.privacy);
       });
@@ -2163,6 +2186,7 @@
       const index = storyRoomState.fragments.indexOf(f) + 1;
       voiceReviewLabel.textContent = `Voice Fragment ${String(index).padStart(2, "0")}`;
       voicePlayer.src = f.audioUrl;
+      fixAudioDuration(voicePlayer);
       voiceStates.review.querySelectorAll(".privacy-pill").forEach((btn) => {
         btn.classList.toggle("is-active", btn.getAttribute("data-voice-privacy") === f.privacy);
       });
